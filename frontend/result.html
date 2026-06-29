@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulation Results | CRQ Monte Carlo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">Beta PERT distribution</p>
+        <h1>Simulation Results</h1>
+        <p class="subtitle">
+          Monte Carlo output for frequency, magnitude, and aggregate cyber risk loss.
+        </p>
+      </header>
+
+      <section id="empty-state" class="panel empty-state" hidden>
+        <h2>No results yet</h2>
+        <p>Run a simulation from the input page to view charts and export a PDF report.</p>
+        <a class="text-button" href="/">Go to simulator</a>
+      </section>
+
+      <section id="status" class="status" hidden></section>
+
+      <section id="results" class="results" hidden>
+        <div class="results-header">
+          <h2>Simulation results</h2>
+          <div class="results-actions">
+            <a class="text-button" href="/">New simulation</a>
+            <button id="export-pdf-button" type="button" class="export-button">
+              Export PDF
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="shared-stats"></div>
+
+        <div class="variable-results">
+          <section class="variable-panel">
+            <h3>Frequency</h3>
+            <div class="stats-grid" id="frequency-stats"></div>
+            <div class="distribution-card">
+              <h4>Fitted distribution</h4>
+              <dl id="frequency-details" class="details-list"></dl>
+            </div>
+          </section>
+
+          <section class="variable-panel">
+            <h3>Magnitude</h3>
+            <div class="stats-grid" id="magnitude-stats"></div>
+            <div class="distribution-card">
+              <h4>Fitted distribution</h4>
+              <dl id="magnitude-details" class="details-list"></dl>
+            </div>
+          </section>
+        </div>
+
+        <div class="histogram-results">
+          <div class="distribution-card chart-card">
+            <h3>Frequency Histogram</h3>
+            <p class="chart-caption">Distribution of simulated annual event frequency.</p>
+            <div class="chart-wrap">
+              <canvas id="frequency-chart" aria-label="Frequency histogram"></canvas>
+            </div>
+          </div>
+
+          <div class="distribution-card chart-card">
+            <h3>Magnitude Histogram</h3>
+            <p class="chart-caption">Distribution of simulated loss magnitude per event.</p>
+            <div class="chart-wrap">
+              <canvas id="magnitude-chart" aria-label="Magnitude histogram"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <section class="aggregate-section">
+          <h3>Aggregate loss (frequency × magnitude)</h3>
+          <div class="stats-grid" id="aggregate-stats"></div>
+
+          <div class="histogram-results">
+            <div class="distribution-card chart-card">
+              <h3>Aggregate Loss Histogram</h3>
+              <p class="chart-caption">Annual loss per simulation (frequency × magnitude). Hover bars for bin details.</p>
+              <div class="chart-wrap">
+                <canvas id="aggregate-loss-chart" aria-label="Aggregate loss histogram"></canvas>
+              </div>
+            </div>
+
+            <div class="distribution-card chart-card">
+              <h3>Loss Exceedance Curve</h3>
+              <p class="chart-caption">Probability that annual loss exceeds a given amount. Hover the line for values.</p>
+              <div class="chart-wrap">
+                <canvas id="lec-chart" aria-label="Loss exceedance curve"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="input-visualizations">
+          <h3>Input uncertainty</h3>
+          <div class="input-charts-grid">
+            <div class="distribution-card chart-card">
+              <h4>Frequency PERT</h4>
+              <p class="chart-caption">Input uncertainty for frequency (min, mode, max).</p>
+              <div class="chart-wrap">
+                <canvas id="frequency-pert-chart" aria-label="Frequency PERT input diagram"></canvas>
+              </div>
+            </div>
+            <div class="distribution-card chart-card">
+              <h4>Magnitude PERT</h4>
+              <p class="chart-caption">Input uncertainty for magnitude (min, mode, max).</p>
+              <div class="chart-wrap">
+                <canvas id="magnitude-pert-chart" aria-label="Magnitude PERT input diagram"></canvas>
+              </div>
+            </div>
+            <div class="distribution-card chart-card chart-wide">
+              <h4>Frequency vs magnitude</h4>
+              <p class="chart-caption">Each point is one simulation draw. Color indicates aggregate loss.</p>
+              <div class="chart-wrap">
+                <canvas id="scatter-chart" aria-label="Frequency versus magnitude scatter plot"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="chart-tooltip" class="chart-tooltip" hidden role="tooltip"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="result.js"></script>
+  </body>
+</html>
