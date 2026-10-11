@@ -625,6 +625,58 @@ button:disabled {
   font-weight: 600;
 }
 
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.sort-button:hover:not(:disabled) {
+  transform: none;
+  color: var(--text);
+}
+
+.sort-indicator {
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+
+.filter-row th {
+  padding-top: 0;
+  font-weight: 400;
+}
+
+.filter-row input,
+.filter-row select {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.5rem;
+  background: #0b1220;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.inventory-count {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.empty-filter {
+  color: var(--muted);
+  text-align: center;
+}
+
 .inventory-table td {
   line-height: 1.45;
 }

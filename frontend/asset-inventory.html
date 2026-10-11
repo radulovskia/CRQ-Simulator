@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Asset Inventory</title>
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -50,15 +50,46 @@
       </section>
 
       <section id="stored" class="panel inventory-panel" hidden>
+        <p id="inventory-count" class="inventory-count" hidden></p>
         <div class="table-wrap">
           <table class="inventory-table">
             <thead>
               <tr>
-                <th>PURL</th>
-                <th>Business Purpose</th>
-                <th>Internet-facing?</th>
-                <th>Criticality</th>
-                <th>Potential consequence</th>
+                <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="purl">PURL<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="business_purpose">Business Purpose<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="internet_facing">Internet-facing?<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="potential_consequence">Potential consequence<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+              </tr>
+              <tr class="filter-row">
+                <th><input type="search" data-field="purl" aria-label="Filter PURL" placeholder="Filter" /></th>
+                <th><input type="search" data-field="business_purpose" aria-label="Filter Business Purpose" placeholder="Filter" /></th>
+                <th>
+                  <select data-field="internet_facing" aria-label="Filter Internet-facing?">
+                    <option value="">All</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </th>
+                <th>
+                  <select data-field="criticality" aria-label="Filter Criticality">
+                    <option value="">All</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </th>
+                <th><input type="search" data-field="potential_consequence" aria-label="Filter Potential consequence" placeholder="Filter" /></th>
               </tr>
             </thead>
             <tbody id="stored-body"></tbody>
@@ -70,6 +101,6 @@
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
     <script src="menu.js?v=2"></script>
-    <script src="inventory.js?v=2"></script>
+    <script src="inventory.js?v=3"></script>
   </body>
 </html>
