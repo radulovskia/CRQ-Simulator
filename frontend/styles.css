@@ -525,6 +525,12 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.last-extraction {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .inventory-replace[hidden] {
   display: none;
 }

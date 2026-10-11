@@ -198,7 +198,7 @@ def health() -> dict[str, str]:
 
 @app.get("/inventory")
 def get_inventory() -> dict:
-    return {"items": list_inventory()}
+    return list_inventory()
 
 
 @app.post("/inventory")

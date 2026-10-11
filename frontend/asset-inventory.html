@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Asset Inventory</title>
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -21,6 +21,7 @@
       <header class="inventory-header">
         <div class="hero">
           <h1>Asset Inventory</h1>
+          <p id="last-extraction" class="last-extraction" hidden></p>
         </div>
         <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Inventory</button>
       </header>
@@ -69,6 +70,6 @@
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
     <script src="menu.js?v=2"></script>
-    <script src="inventory.js?v=1"></script>
+    <script src="inventory.js?v=2"></script>
   </body>
 </html>

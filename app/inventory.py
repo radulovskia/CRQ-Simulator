@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS assets (
 )
 """
 
+CREATE_META = """
+CREATE TABLE IF NOT EXISTS inventory_meta (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    extracted_at TIMESTAMPTZ NOT NULL
+)
+"""
+
 
 def database_url() -> str:
     url = os.environ.get("DATABASE_URL")
@@ -55,6 +62,7 @@ def init_db() -> None:
         try:
             with connect() as connection:
                 connection.execute(CREATE_TABLE)
+                connection.execute(CREATE_META)
                 connection.commit()
             return
         except psycopg.OperationalError as exc:
@@ -63,7 +71,7 @@ def init_db() -> None:
     raise last_error
 
 
-def list_inventory() -> list[dict]:
+def list_inventory() -> dict:
     with connect() as connection:
         rows = connection.execute(
             """
@@ -72,7 +80,11 @@ def list_inventory() -> list[dict]:
             ORDER BY id
             """
         ).fetchall()
-    return [dict(row) for row in rows]
+        meta = connection.execute(
+            "SELECT extracted_at FROM inventory_meta WHERE id = 1"
+        ).fetchone()
+    extracted_at = meta["extracted_at"].isoformat() if meta else None
+    return {"items": [dict(row) for row in rows], "extracted_at": extracted_at}
 
 
 def replace_inventory(rows: list[dict]) -> None:
@@ -92,6 +104,13 @@ def replace_inventory(rows: list[dict]) -> None:
                     """,
                     rows,
                 )
+            connection.execute(
+                """
+                INSERT INTO inventory_meta (id, extracted_at)
+                VALUES (1, NOW())
+                ON CONFLICT (id) DO UPDATE SET extracted_at = EXCLUDED.extracted_at
+                """
+            )
 
 
 def process_upload(filename: str, content: bytes) -> tuple[int, dict]:

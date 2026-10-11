@@ -25,6 +25,7 @@ const reviewHead = document.getElementById("review-head");
 const reviewBody = document.getElementById("review-body");
 const storedSection = document.getElementById("stored");
 const storedBody = document.getElementById("stored-body");
+const lastExtraction = document.getElementById("last-extraction");
 
 let storedItems = [];
 
@@ -38,6 +39,23 @@ function clearStatus() {
   statusBox.hidden = true;
   statusBox.textContent = "";
   statusBox.className = "status";
+}
+
+function showLastExtraction(extractedAt) {
+  const parsed = extractedAt ? new Date(extractedAt) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) {
+    lastExtraction.hidden = true;
+    lastExtraction.textContent = "";
+    return;
+  }
+  lastExtraction.hidden = false;
+  lastExtraction.textContent = `Last extraction: ${parsed.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
 }
 
 function showStoredLayout() {
@@ -111,6 +129,7 @@ async function loadInventory() {
   }
   const data = await response.json();
   storedItems = data.items ?? [];
+  showLastExtraction(data.extracted_at);
   clearStatus();
   showStoredLayout();
 }
