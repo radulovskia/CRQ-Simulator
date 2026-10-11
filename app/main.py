@@ -6,12 +6,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
 from inventory import init_db, list_inventory, process_upload
+from vulnerabilities import clear_findings, init_vulnerability_db, list_findings, scan_vulnerabilities
 from monte_carlo import run_monte_carlo
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    init_vulnerability_db()
     yield
 
 
@@ -201,10 +203,29 @@ def get_inventory() -> dict:
     return list_inventory()
 
 
+@app.get("/vulnerabilities")
+def get_vulnerabilities() -> dict:
+    return list_findings()
+
+
+@app.post("/vulnerabilities")
+def post_vulnerabilities() -> JSONResponse:
+    status_code, body = scan_vulnerabilities()
+    return JSONResponse(status_code=status_code, content=body)
+
+
 @app.post("/inventory")
 async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
     content = await file.read()
     status_code, body = process_upload(file.filename or "", content)
+    if status_code == 200:
+        clear_findings()
+        _scan_status, scan_body = scan_vulnerabilities()
+        body["scan_ok"] = bool(scan_body.get("ok"))
+        if scan_body.get("ok"):
+            body["vulnerability_count"] = scan_body.get("count", 0)
+        else:
+            body["scan_error"] = scan_body.get("error") or "The vulnerability scan failed."
     return JSONResponse(status_code=status_code, content=body)
 
 

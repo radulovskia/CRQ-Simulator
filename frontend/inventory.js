@@ -210,7 +210,7 @@ async function uploadFile(file) {
 
   uploadButton.disabled = true;
   replaceButton.disabled = true;
-  setStatus("Checking the file…", "success");
+  setStatus("Saving inventory and scanning for vulnerabilities…", "success");
 
   try {
     const body = new FormData();
@@ -220,7 +220,16 @@ async function uploadFile(file) {
 
     if (data.ok) {
       await loadInventory();
-      setStatus(`Saved ${data.count} ${data.count === 1 ? "entry" : "entries"}.`, "success");
+      const saved = `Saved ${data.count} ${data.count === 1 ? "entry" : "entries"}.`;
+      if (data.scan_ok) {
+        const found = data.vulnerability_count ?? 0;
+        const scanMessage = found === 0
+          ? "Vulnerability scan found no vulnerabilities."
+          : `Vulnerability scan saved ${found} ${found === 1 ? "vulnerability" : "vulnerabilities"}.`;
+        setStatus(`${saved} ${scanMessage}`, "success");
+      } else {
+        setStatus(`${saved} ${data.scan_error || "The vulnerability scan failed."}`, "error");
+      }
       return;
     }
 

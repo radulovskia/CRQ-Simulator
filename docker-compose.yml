@@ -19,6 +19,7 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql://crq:crq@postgres:5432/crq
+      VULNERABILITY_DATABASE_URL: postgresql://crq:crq@postgres:5432/vulnerabilities
     ports:
       - "8000:8000"
     depends_on:

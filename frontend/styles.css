@@ -694,3 +694,13 @@ button:disabled {
   font-size: 0.78rem;
   font-weight: 700;
 }
+
+.scan-button {
+  width: auto;
+  min-width: 16rem;
+  margin-bottom: 0.25rem;
+}
+
+.scan-button:disabled {
+  cursor: wait;
+}
