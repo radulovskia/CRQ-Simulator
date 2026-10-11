@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asset Inventory</title>
+    <link rel="stylesheet" href="styles.css?v=7" />
+  </head>
+  <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/monte-carlo">Manual Simulation</a></li>
+        <li><a href="/">Home</a></li>
+      </ul>
+    </nav>
+
+    <main class="page page-wide">
+      <header class="inventory-header">
+        <div class="hero">
+          <h1>Asset Inventory</h1>
+        </div>
+        <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Inventory</button>
+      </header>
+
+      <section id="upload-panel" class="panel upload-panel">
+        <p class="upload-explanation">
+          Upload a .csv or .xlsx file containing the following columns: PURL, Business Purpose, Internet-facing?, Criticality, and Potential consequence. Ensure all columns are included and correctly formatted.
+        </p>
+        <div id="dropzone" class="dropzone">
+          <button id="upload-button" type="button">Upload file</button>
+          <p class="dropzone-hint">or drag and drop a file here</p>
+        </div>
+      </section>
+
+      <section id="status" class="status" hidden></section>
+
+      <section id="review" class="panel inventory-panel" hidden>
+        <h2>Entries that do not comply</h2>
+        <p class="upload-explanation">Nothing was saved. Correct the highlighted cells and upload the file again.</p>
+        <div class="table-wrap">
+          <table class="inventory-table">
+            <thead id="review-head"></thead>
+            <tbody id="review-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="stored" class="panel inventory-panel" hidden>
+        <div class="table-wrap">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th>PURL</th>
+                <th>Business Purpose</th>
+                <th>Internet-facing?</th>
+                <th>Criticality</th>
+                <th>Potential consequence</th>
+              </tr>
+            </thead>
+            <tbody id="stored-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
+
+    <script src="menu.js?v=2"></script>
+    <script src="inventory.js?v=1"></script>
+  </body>
+</html>

@@ -1,8 +1,19 @@
-from fastapi import FastAPI, HTTPException, Query
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
+from inventory import init_db, list_inventory, process_upload
 from monte_carlo import run_monte_carlo
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    yield
+
 
 app = FastAPI(
     title="CRQ Monte Carlo API",
@@ -11,6 +22,7 @@ app = FastAPI(
         "independent Beta PERT distributions."
     ),
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -182,6 +194,18 @@ def _aggregate_loss_response(result) -> AggregateLossResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/inventory")
+def get_inventory() -> dict:
+    return {"items": list_inventory()}
+
+
+@app.post("/inventory")
+async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
+    content = await file.read()
+    status_code, body = process_upload(file.filename or "", content)
+    return JSONResponse(status_code=status_code, content=body)
 
 
 @app.post("/mc", response_model=MCResponse)

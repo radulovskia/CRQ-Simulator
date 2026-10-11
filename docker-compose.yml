@@ -1,10 +1,29 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: crq
+      POSTGRES_PASSWORD: crq
+      POSTGRES_DB: crq
+    volumes:
+      - crq-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crq -d crq"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./app
       dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://crq:crq@postgres:5432/crq
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -14,3 +33,6 @@ services:
       - "8080:80"
     depends_on:
       - backend
+
+volumes:
+  crq-postgres:
