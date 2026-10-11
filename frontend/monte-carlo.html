@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRQ Monte Carlo Simulator</title>
+  <link rel="stylesheet" href="styles.css?v=3" />
+</head>
+
+<body>
+  <nav class="floating-menu" aria-label="Main menu">
+    <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false"
+      aria-controls="menu-panel">
+      <span class="menu-icon" aria-hidden="true"></span>
+    </button>
+    <ul id="menu-panel" class="menu-panel" hidden>
+      <li><a href="/monte-carlo">Manual Simulation</a></li>
+      <li><a href="/">Home</a></li>
+    </ul>
+  </nav>
+
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Beta PERT distribution</p>
+      <h1>Monte Carlo Simulator</h1>
+      <p class="subtitle">
+        Model frequency and magnitude with separate three-point estimates, then run a shared Monte Carlo simulation.
+      </p>
+    </header>
+
+    <section class="panel">
+      <form id="simulation-form">
+        <fieldset class="variable-group">
+          <legend>Frequency</legend>
+          <div class="form-grid">
+            <div class="field">
+              <label for="frequency_minimum">Minimum</label>
+              <input id="frequency_minimum" name="frequency_minimum" type="number" step="any" value="0.5" required />
+            </div>
+
+            <div class="field">
+              <label for="frequency_mode">Mode (most likely)</label>
+              <input id="frequency_mode" name="frequency_mode" type="number" step="any" value="2" required />
+            </div>
+
+            <div class="field">
+              <label for="frequency_maximum">Maximum</label>
+              <input id="frequency_maximum" name="frequency_maximum" type="number" step="any" value="6" required />
+            </div>
+
+            <div class="field">
+              <label for="frequency_lambda">Confidence level (lambda)</label>
+              <input id="frequency_lambda" name="frequency_lambda" type="number" min="1" max="10" step="any" value="4"
+                required />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="variable-group">
+          <legend>Magnitude</legend>
+          <div class="form-grid">
+            <div class="field">
+              <label for="magnitude_minimum">Minimum</label>
+              <input id="magnitude_minimum" name="magnitude_minimum" type="number" step="any" value="1000" required />
+            </div>
+
+            <div class="field">
+              <label for="magnitude_mode">Mode (most likely)</label>
+              <input id="magnitude_mode" name="magnitude_mode" type="number" step="any" value="10000" required />
+            </div>
+
+            <div class="field">
+              <label for="magnitude_maximum">Maximum</label>
+              <input id="magnitude_maximum" name="magnitude_maximum" type="number" step="any" value="50000" required />
+            </div>
+
+            <div class="field">
+              <label for="magnitude_lambda">Confidence level (lambda)</label>
+              <input id="magnitude_lambda" name="magnitude_lambda" type="number" min="1" max="10" step="any" value="4"
+                required />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="variable-group">
+          <legend>Simulation settings</legend>
+          <div class="form-grid">
+            <div class="field">
+              <label for="iterations">Iterations</label>
+              <input id="iterations" name="iterations" type="number" min="1000" max="1000000" step="1" value="10000"
+                required />
+            </div>
+
+            <div class="field">
+              <label for="seed">Seed (optional)</label>
+              <input id="seed" name="seed" type="number" step="1" placeholder="Random" />
+            </div>
+
+            <div class="actions">
+              <button id="run-button" type="submit">Run simulation</button>
+            </div>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section id="status" class="status" hidden></section>
+  </main>
+
+  <script src="menu.js?v=2"></script>
+  <script src="form.js?v=2"></script>
+</body>
+
+</html>

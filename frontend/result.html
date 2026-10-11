@@ -4,9 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simulation Results | CRQ Monte Carlo</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=3" />
   </head>
   <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/monte-carlo">Monte Carlo Simulator</a></li>
+        <li><a href="/">Home</a></li>
+      </ul>
+    </nav>
+
     <main class="page">
       <header class="hero">
         <p class="eyebrow">Beta PERT distribution</p>
@@ -19,7 +29,7 @@
       <section id="empty-state" class="panel empty-state" hidden>
         <h2>No results yet</h2>
         <p>Run a simulation from the input page to view charts and export a PDF report.</p>
-        <a class="text-button" href="/">Go to simulator</a>
+        <a class="text-button" href="/monte-carlo">Go to simulator</a>
       </section>
 
       <section id="status" class="status" hidden></section>
@@ -28,7 +38,7 @@
         <div class="results-header">
           <h2>Simulation results</h2>
           <div class="results-actions">
-            <a class="text-button" href="/">New simulation</a>
+            <a class="text-button" href="/monte-carlo">New simulation</a>
             <button id="export-pdf-button" type="button" class="export-button">
               Export PDF
             </button>
@@ -130,6 +140,7 @@
     <div id="chart-tooltip" class="chart-tooltip" hidden role="tooltip"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script src="result.js"></script>
+    <script src="menu.js?v=2"></script>
+    <script src="result.js?v=2"></script>
   </body>
 </html>
