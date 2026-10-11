@@ -32,9 +32,12 @@ const filterControls = [...document.querySelectorAll(".filter-row [data-field]")
 
 const CRITICALITY_RANK = { Low: 0, Medium: 1, High: 2 };
 
+const storedPager = document.getElementById("stored-pager");
+
 let storedItems = [];
 let sortField = null;
 let sortDirection = "asc";
+let currentPage = 1;
 const filters = Object.fromEntries(STORED_FIELDS.map((field) => [field, ""]));
 
 function setStatus(message, type) {
@@ -111,6 +114,8 @@ function renderStoredRows() {
   inventoryCount.hidden = !filtered;
   inventoryCount.textContent = filtered ? `Showing ${visible.length} of ${storedItems.length}` : "";
 
+  currentPage = clampPage(visible.length, currentPage);
+
   if (!visible.length) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
@@ -119,11 +124,12 @@ function renderStoredRows() {
     cell.textContent = "No entries match these filters.";
     row.appendChild(cell);
     storedBody.replaceChildren(row);
+    renderPager(storedPager, 0, 1, goToPage);
     return;
   }
 
   storedBody.replaceChildren(
-    ...visible.map((item) => {
+    ...pageItems(visible, currentPage).map((item) => {
       const row = document.createElement("tr");
       STORED_FIELDS.forEach((field) => {
         const cell = document.createElement("td");
@@ -133,6 +139,12 @@ function renderStoredRows() {
       return row;
     }),
   );
+  renderPager(storedPager, visible.length, currentPage, goToPage);
+}
+
+function goToPage(page) {
+  currentPage = page;
+  renderStoredRows();
 }
 
 function showStoredLayout() {
@@ -196,6 +208,7 @@ async function loadInventory() {
   }
   const data = await response.json();
   storedItems = data.items ?? [];
+  currentPage = 1;
   showLastExtraction(data.extracted_at);
   clearStatus();
   showStoredLayout();
@@ -262,6 +275,7 @@ sortButtons.forEach((button) => {
       sortField = button.dataset.field;
       sortDirection = "asc";
     }
+    currentPage = 1;
     renderStoredRows();
   });
 });
@@ -269,6 +283,7 @@ sortButtons.forEach((button) => {
 filterControls.forEach((control) => {
   control.addEventListener("input", () => {
     filters[control.dataset.field] = control.value;
+    currentPage = 1;
     renderStoredRows();
   });
 });
