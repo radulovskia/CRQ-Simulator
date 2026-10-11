@@ -9,25 +9,21 @@ const magnitudeStats = document.getElementById("magnitude-stats");
 const aggregateStats = document.getElementById("aggregate-stats");
 const frequencyDetails = document.getElementById("frequency-details");
 const magnitudeDetails = document.getElementById("magnitude-details");
-const frequencyChart = document.getElementById("frequency-chart");
-const magnitudeChart = document.getElementById("magnitude-chart");
-const aggregateLossChart = document.getElementById("aggregate-loss-chart");
-const lecChart = document.getElementById("lec-chart");
-const frequencyPertChart = document.getElementById("frequency-pert-chart");
-const magnitudePertChart = document.getElementById("magnitude-pert-chart");
-const scatterChart = document.getElementById("scatter-chart");
-const chartTooltip = document.getElementById("chart-tooltip");
 const exportPdfButton = document.getElementById("export-pdf-button");
 
 let lastSimulationData = null;
+const screenCharts = [];
 
 const PDF_MARGIN = 14;
 const PDF_ROW_HEIGHT = 3.8;
 const PDF_SECTION_GAP = 3;
-const PDF_CHART_TITLE_HEIGHT = 7;
-const PDF_CHART_GAP = 5;
-const PDF_STANDARD_CHART_HEIGHT = 98;
-const PDF_SCATTER_CHART_HEIGHT = 112;
+const PDF_COLUMN_GAP = 5;
+const PDF_BLOCK_GAP = 5;
+const PDF_CHART_HEADER_HEIGHT = 9.5;
+// Off-screen PDF charts are laid out at 4 CSS px per mm and rasterized at 4x,
+// which gives ~400 DPI images with chart text at a legible ~7-8 pt.
+const PDF_PX_PER_MM = 4;
+const PDF_PIXEL_RATIO = 4;
 
 const numberFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
@@ -38,11 +34,76 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-const CHART_PADDING = { top: 40, right: 24, bottom: 58, left: 72 };
-const DEFAULT_CHART_HEIGHT = 280;
-const SCATTER_CHART_HEIGHT = 320;
+const compactFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
 
-const chartInteractionHandlers = new WeakMap();
+const densityFormatter = new Intl.NumberFormat(undefined, {
+  maximumSignificantDigits: 4,
+});
+
+const FONT_FAMILY = 'Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+
+const SCREEN_THEME = {
+  name: "screen",
+  text: "#cbd5e1",
+  muted: "#94a3b8",
+  strong: "#f1f5f9",
+  axisLine: "#475569",
+  splitLine: "rgba(148, 163, 184, 0.12)",
+  tooltipBackground: "rgba(11, 18, 32, 0.96)",
+  tooltipBorder: "#334155",
+  saveBackground: "#0b1220",
+  fontSize: 12,
+  smallFontSize: 11,
+  symbolSize: 5,
+  colors: {
+    frequency: "#38bdf8",
+    magnitude: "#4ade80",
+    aggregate: "#fbbf24",
+    exceedance: "#f59e0b",
+    p5: "#a78bfa",
+    mean: "#e2e8f0",
+    p95: "#f87171",
+    var95: "#f87171",
+    var99: "#fb923c",
+    tvar95: "#f472b6",
+    tvar99: "#c084fc",
+    bound: "#64748b",
+    lossScale: ["#22d3ee", "#a3e635", "#facc15", "#f97316", "#ef4444"],
+  },
+};
+
+const PRINT_THEME = {
+  name: "print",
+  text: "#334155",
+  muted: "#64748b",
+  strong: "#0f172a",
+  axisLine: "#94a3b8",
+  splitLine: "#e2e8f0",
+  tooltipBackground: "#ffffff",
+  tooltipBorder: "#cbd5e1",
+  saveBackground: "#ffffff",
+  fontSize: 11,
+  smallFontSize: 10,
+  symbolSize: 3.5,
+  colors: {
+    frequency: "#0284c7",
+    magnitude: "#16a34a",
+    aggregate: "#d97706",
+    exceedance: "#d97706",
+    p5: "#7c3aed",
+    mean: "#0f172a",
+    p95: "#dc2626",
+    var95: "#dc2626",
+    var99: "#ea580c",
+    tvar95: "#db2777",
+    tvar99: "#9333ea",
+    bound: "#94a3b8",
+    lossScale: ["#0891b2", "#65a30d", "#ca8a04", "#ea580c", "#dc2626"],
+  },
+};
 
 function setStatus(message, type = "success") {
   statusBox.hidden = false;
@@ -76,721 +137,671 @@ function formatStatValue(label, value) {
   return numberFormatter.format(value);
 }
 
-function formatAxisValue(value) {
-  const absolute = Math.abs(value);
-  if (absolute >= 1_000_000) {
-    return `${numberFormatter.format(value / 1_000_000)}M`;
-  }
-  if (absolute >= 10_000) {
-    return `${numberFormatter.format(value / 1_000)}k`;
-  }
-  if (absolute >= 1000) {
-    return numberFormatter.format(value);
-  }
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
-  return numberFormatter.format(value);
+function formatCompact(value) {
+  return compactFormatter.format(value);
 }
 
-function computeTicks(minValue, maxValue, targetCount = 5) {
-  if (minValue === maxValue) {
-    return [minValue];
-  }
-
-  const span = maxValue - minValue;
-  const rawStep = span / Math.max(targetCount - 1, 1);
-  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
-  const normalized = rawStep / magnitude;
-  let niceStep = magnitude;
-
-  if (normalized <= 1) {
-    niceStep = magnitude;
-  } else if (normalized <= 2) {
-    niceStep = 2 * magnitude;
-  } else if (normalized <= 5) {
-    niceStep = 5 * magnitude;
-  } else {
-    niceStep = 10 * magnitude;
-  }
-
-  const ticks = [];
-  const start = Math.ceil(minValue / niceStep) * niceStep;
-  for (let tick = start; tick <= maxValue + niceStep * 0.001; tick += niceStep) {
-    ticks.push(Number(tick.toPrecision(12)));
-  }
-
-  if (!ticks.length || ticks[0] > minValue) {
-    ticks.unshift(minValue);
-  }
-  if (ticks[ticks.length - 1] < maxValue) {
-    ticks.push(maxValue);
-  }
-
-  return ticks;
+function formatMoneyCompact(value) {
+  return value < 0 ? `-$${compactFormatter.format(-value)}` : `$${compactFormatter.format(value)}`;
 }
 
-function setupCanvas(canvas, height = DEFAULT_CHART_HEIGHT) {
-  const width = canvas.clientWidth || 640;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  const context = canvas.getContext("2d");
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { context, width, height };
+function formatMoney(value) {
+  return value < 0 ? `-$${numberFormatter.format(-value)}` : `$${numberFormatter.format(value)}`;
 }
 
-function getPlotArea(width, height) {
-  return {
-    chartWidth: width - CHART_PADDING.left - CHART_PADDING.right,
-    chartHeight: height - CHART_PADDING.top - CHART_PADDING.bottom,
-  };
-}
+// ---------------------------------------------------------------------------
+// Beta PERT math
+// ---------------------------------------------------------------------------
 
-function valueToX(value, minValue, maxValue, chartWidth) {
-  if (maxValue === minValue) {
-    return CHART_PADDING.left + chartWidth / 2;
-  }
-  const ratio = (value - minValue) / (maxValue - minValue);
-  return CHART_PADDING.left + ratio * chartWidth;
-}
-
-function valueToY(value, minValue, maxValue, chartHeight) {
-  if (maxValue === minValue) {
-    return CHART_PADDING.top + chartHeight / 2;
-  }
-  const ratio = (value - minValue) / (maxValue - minValue);
-  return CHART_PADDING.top + chartHeight - ratio * chartHeight;
-}
-
-function drawChartBackground(context, width, height) {
-  context.clearRect(0, 0, width, height);
-  context.fillStyle = "#0b1220";
-  context.fillRect(0, 0, width, height);
-}
-
-function drawAxes(context, width, height, options) {
-  const {
-    xMin,
-    xMax,
-    yMin,
-    yMax,
-    xLabel,
-    yLabel,
-    xTicks,
-    yTicks,
-    formatX = formatAxisValue,
-    formatY = formatAxisValue,
-  } = options;
-  const { chartWidth, chartHeight } = getPlotArea(width, height);
-
-  context.strokeStyle = "#334155";
-  context.lineWidth = 1;
-  context.fillStyle = "#64748b";
-  context.font = "11px Inter, system-ui, sans-serif";
-
-  yTicks.forEach((tick) => {
-    const y = valueToY(tick, yMin, yMax, chartHeight);
-    context.strokeStyle = "#1e293b";
-    context.beginPath();
-    context.moveTo(CHART_PADDING.left, y);
-    context.lineTo(CHART_PADDING.left + chartWidth, y);
-    context.stroke();
-
-    context.fillStyle = "#94a3b8";
-    context.textAlign = "right";
-    context.textBaseline = "middle";
-    context.fillText(formatY(tick), CHART_PADDING.left - 8, y);
-  });
-
-  xTicks.forEach((tick) => {
-    const x = valueToX(tick, xMin, xMax, chartWidth);
-    context.strokeStyle = "#1e293b";
-    context.beginPath();
-    context.moveTo(x, CHART_PADDING.top);
-    context.lineTo(x, CHART_PADDING.top + chartHeight);
-    context.stroke();
-
-    context.fillStyle = "#94a3b8";
-    context.textAlign = "center";
-    context.textBaseline = "top";
-    context.fillText(formatX(tick), x, CHART_PADDING.top + chartHeight + 8);
-  });
-
-  context.strokeStyle = "#475569";
-  context.lineWidth = 1.5;
-  context.beginPath();
-  context.moveTo(CHART_PADDING.left, CHART_PADDING.top);
-  context.lineTo(CHART_PADDING.left, CHART_PADDING.top + chartHeight);
-  context.lineTo(CHART_PADDING.left + chartWidth, CHART_PADDING.top + chartHeight);
-  context.stroke();
-
-  context.fillStyle = "#cbd5e1";
-  context.font = "12px Inter, system-ui, sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "top";
-  context.fillText(xLabel, CHART_PADDING.left + chartWidth / 2, height - 22);
-
-  context.save();
-  context.translate(18, CHART_PADDING.top + chartHeight / 2);
-  context.rotate(-Math.PI / 2);
-  context.textAlign = "center";
-  context.textBaseline = "top";
-  context.fillText(yLabel, 0, 0);
-  context.restore();
-}
-
-function drawLegend(context, items, width) {
-  const boxWidth = 118;
-  const boxHeight = 14 + items.length * 16;
-  const x = width - CHART_PADDING.right - boxWidth;
-  const y = CHART_PADDING.top;
-
-  context.fillStyle = "rgba(11, 18, 32, 0.88)";
-  context.strokeStyle = "#334155";
-  context.lineWidth = 1;
-  context.fillRect(x, y, boxWidth, boxHeight);
-  context.strokeRect(x, y, boxWidth, boxHeight);
-
-  items.forEach((item, index) => {
-    const rowY = y + 10 + index * 16;
-    context.strokeStyle = item.color;
-    context.lineWidth = 2;
-    context.setLineDash(item.dashed ? [4, 4] : []);
-    context.beginPath();
-    context.moveTo(x + 10, rowY);
-    context.lineTo(x + 28, rowY);
-    context.stroke();
-    context.setLineDash([]);
-
-    context.fillStyle = "#e2e8f0";
-    context.font = "11px Inter, system-ui, sans-serif";
-    context.textAlign = "left";
-    context.textBaseline = "middle";
-    context.fillText(item.label, x + 34, rowY);
-  });
-}
-
-function showTooltip(clientX, clientY, title, lines) {
-  chartTooltip.innerHTML = `<strong>${title}</strong>${lines.map((line) => `<div>${line}</div>`).join("")}`;
-  chartTooltip.hidden = false;
-
-  const margin = 12;
-  const rect = chartTooltip.getBoundingClientRect();
-  let left = clientX + margin;
-  let top = clientY + margin;
-
-  if (left + rect.width > window.innerWidth - margin) {
-    left = clientX - rect.width - margin;
-  }
-  if (top + rect.height > window.innerHeight - margin) {
-    top = clientY - rect.height - margin;
-  }
-
-  chartTooltip.style.left = `${Math.max(margin, left)}px`;
-  chartTooltip.style.top = `${Math.max(margin, top)}px`;
-}
-
-function hideTooltip() {
-  chartTooltip.hidden = true;
-}
-
-function attachChartInteraction(canvas, onMove, onLeave) {
-  const previous = chartInteractionHandlers.get(canvas);
-  if (previous) {
-    canvas.removeEventListener("mousemove", previous.onMove);
-    canvas.removeEventListener("mouseleave", previous.onLeave);
-  }
-
-  const handlers = { onMove, onLeave };
-  chartInteractionHandlers.set(canvas, handlers);
-  canvas.addEventListener("mousemove", onMove);
-  canvas.addEventListener("mouseleave", onLeave);
-}
-
-function getCanvasPoint(canvas, event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-    clientX: event.clientX,
-    clientY: event.clientY,
-  };
-}
-
-function renderHistogram(canvas, histogram, options = {}) {
-  const {
-    barColor = "#38bdf8",
-    markers = [],
-    xLabel = "Value",
-    yLabel = "Count",
-    tooltipTitle = "Bin",
-  } = options;
-  const { bin_edges: binEdges, counts } = histogram;
-
-  if (!binEdges.length || !counts.length) {
-    canvas.hidden = true;
-    return;
-  }
-
-  canvas.hidden = false;
-
-  const { context, width, height } = setupCanvas(canvas);
-  drawChartBackground(context, width, height);
-
-  const { chartWidth, chartHeight } = getPlotArea(width, height);
-  const minValue = binEdges[0];
-  const maxValue = binEdges[binEdges.length - 1];
-  const maxCount = Math.max(...counts, 1);
-  const barGap = 1;
-  const barWidth = chartWidth / counts.length;
-  const xTicks = computeTicks(minValue, maxValue, 6);
-  const yTicks = computeTicks(0, maxCount, 5);
-  const hitAreas = [];
-
-  drawAxes(context, width, height, {
-    xMin: minValue,
-    xMax: maxValue,
-    yMin: 0,
-    yMax: maxCount,
-    xLabel,
-    yLabel,
-    xTicks,
-    yTicks,
-    formatY: (value) => String(Math.round(value)),
-  });
-
-  counts.forEach((count, index) => {
-    const barHeight = (count / maxCount) * chartHeight;
-    const x = CHART_PADDING.left + index * barWidth + barGap / 2;
-    const y = CHART_PADDING.top + chartHeight - barHeight;
-    const drawWidth = Math.max(barWidth - barGap, 1);
-
-    context.fillStyle = barColor;
-    context.fillRect(x, y, drawWidth, barHeight);
-
-    hitAreas.push({
-      x,
-      y: CHART_PADDING.top,
-      width: drawWidth,
-      height: chartHeight,
-      count,
-      rangeStart: binEdges[index],
-      rangeEnd: binEdges[index + 1],
-    });
-  });
-
-  markers.forEach((marker) => {
-    const x = valueToX(marker.value, minValue, maxValue, chartWidth);
-    context.strokeStyle = marker.color;
-    context.lineWidth = 2;
-    context.setLineDash([5, 4]);
-    context.beginPath();
-    context.moveTo(x, CHART_PADDING.top);
-    context.lineTo(x, CHART_PADDING.top + chartHeight);
-    context.stroke();
-    context.setLineDash([]);
-
-    context.fillStyle = marker.color;
-    context.font = "10px Inter, system-ui, sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "bottom";
-    context.fillText(marker.label, x, CHART_PADDING.top - 6);
-  });
-
-  if (markers.length) {
-    drawLegend(
-      context,
-      markers.map((marker) => ({
-        label: `${marker.label}: ${formatAxisValue(marker.value)}`,
-        color: marker.color,
-        dashed: true,
-      })),
-      width,
-    );
-  }
-
-  attachChartInteraction(
-    canvas,
-    (event) => {
-      const point = getCanvasPoint(canvas, event);
-      const hit = hitAreas.find(
-        (area) =>
-          point.x >= area.x &&
-          point.x <= area.x + area.width &&
-          point.y >= area.y &&
-          point.y <= area.y + area.height,
-      );
-
-      if (!hit) {
-        hideTooltip();
-        return;
-      }
-
-      showTooltip(point.clientX, point.clientY, tooltipTitle, [
-        `Range: ${formatAxisValue(hit.rangeStart)} – ${formatAxisValue(hit.rangeEnd)}`,
-        `Count: ${hit.count}`,
-        `Share: ${percentFormatter.format(hit.count / counts.reduce((sum, value) => sum + value, 0))}`,
-      ]);
-    },
-    hideTooltip,
-  );
-}
-
-function renderExceedanceCurve(canvas, exceedanceCurve) {
-  const points = exceedanceCurve.points;
-  if (!points.length) {
-    canvas.hidden = true;
-    return;
-  }
-
-  canvas.hidden = false;
-
-  const minLoss = points[0].loss;
-  const maxLoss = points[points.length - 1].loss;
-  const xTicks = computeTicks(minLoss, maxLoss, 6);
-  const yTicks = [0, 0.2, 0.4, 0.6, 0.8, 1];
-
-  function interpolateAtLoss(loss) {
-    if (loss <= points[0].loss) {
-      return { loss: points[0].loss, exceedance_probability: points[0].exceedance_probability };
-    }
-    if (loss >= points[points.length - 1].loss) {
-      return {
-        loss: points[points.length - 1].loss,
-        exceedance_probability: points[points.length - 1].exceedance_probability,
-      };
-    }
-
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const start = points[index];
-      const end = points[index + 1];
-      if (loss >= start.loss && loss <= end.loss) {
-        const ratio = (loss - start.loss) / (end.loss - start.loss);
-        return {
-          loss,
-          exceedance_probability:
-            start.exceedance_probability +
-            ratio * (end.exceedance_probability - start.exceedance_probability),
-        };
-      }
-    }
-
-    return points[points.length - 1];
-  }
-
-  function draw(hoverPoint = null) {
-    const { context, width, height } = setupCanvas(canvas);
-    drawChartBackground(context, width, height);
-
-    const { chartWidth, chartHeight } = getPlotArea(width, height);
-
-    drawAxes(context, width, height, {
-      xMin: minLoss,
-      xMax: maxLoss,
-      yMin: 0,
-      yMax: 1,
-      xLabel: "Annual loss ($)",
-      yLabel: "Exceedance probability",
-      xTicks,
-      yTicks,
-      formatY: (value) => percentFormatter.format(value),
-    });
-
-    context.strokeStyle = "#fbbf24";
-    context.lineWidth = 2.5;
-    context.beginPath();
-    points.forEach((point, index) => {
-      const x = valueToX(point.loss, minLoss, maxLoss, chartWidth);
-      const y = valueToY(point.exceedance_probability, 0, 1, chartHeight);
-      if (index === 0) {
-        context.moveTo(x, y);
-      } else {
-        context.lineTo(x, y);
-      }
-    });
-    context.stroke();
-
-    if (hoverPoint) {
-      const hoverX = valueToX(hoverPoint.loss, minLoss, maxLoss, chartWidth);
-      const hoverY = valueToY(hoverPoint.exceedance_probability, 0, 1, chartHeight);
-
-      context.strokeStyle = "#64748b";
-      context.lineWidth = 1;
-      context.setLineDash([4, 4]);
-      context.beginPath();
-      context.moveTo(hoverX, CHART_PADDING.top);
-      context.lineTo(hoverX, CHART_PADDING.top + chartHeight);
-      context.moveTo(CHART_PADDING.left, hoverY);
-      context.lineTo(CHART_PADDING.left + chartWidth, hoverY);
-      context.stroke();
-      context.setLineDash([]);
-
-      context.fillStyle = "#fbbf24";
-      context.strokeStyle = "#fef3c7";
-      context.lineWidth = 2;
-      context.beginPath();
-      context.arc(hoverX, hoverY, 5, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-    }
-
-    return { chartWidth, chartHeight, width, height };
-  }
-
-  draw();
-
-  attachChartInteraction(
-    canvas,
-    (event) => {
-      const point = getCanvasPoint(canvas, event);
-      const { chartWidth, chartHeight } = getPlotArea(canvas.clientWidth || 640, DEFAULT_CHART_HEIGHT);
-      const plotX = point.x - CHART_PADDING.left;
-      const plotY = point.y - CHART_PADDING.top;
-
-      if (
-        plotX < 0 ||
-        plotX > chartWidth ||
-        plotY < 0 ||
-        plotY > chartHeight
-      ) {
-        draw();
-        hideTooltip();
-        return;
-      }
-
-      const loss = minLoss + (plotX / chartWidth) * (maxLoss - minLoss);
-      const hoverPoint = interpolateAtLoss(loss);
-      draw(hoverPoint);
-
-      showTooltip(point.clientX, point.clientY, "Loss exceedance", [
-        `Magnitude (annual loss): ${numberFormatter.format(hoverPoint.loss)}`,
-        `Exceedance probability: ${percentFormatter.format(hoverPoint.exceedance_probability)}`,
-      ]);
-    },
-    () => {
-      draw();
-      hideTooltip();
-    },
-  );
-}
+const LANCZOS_COEFFICIENTS = [
+  676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+  12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+];
 
 function logGamma(value) {
-  if (value <= 0) {
-    return 0;
+  if (value < 0.5) {
+    return Math.log(Math.PI / Math.sin(Math.PI * value)) - logGamma(1 - value);
   }
-  return (value - 0.5) * Math.log(value) - value + 0.5 * Math.log(2 * Math.PI);
+  const x = value - 1;
+  let sum = 0.99999999999980993;
+  LANCZOS_COEFFICIENTS.forEach((coefficient, index) => {
+    sum += coefficient / (x + index + 1);
+  });
+  const t = x + LANCZOS_COEFFICIENTS.length - 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(sum);
 }
 
-function logBeta(alpha, beta) {
-  return logGamma(alpha) + logGamma(beta) - logGamma(alpha + beta);
-}
-
-function betaPdf(x, alpha, beta) {
-  if (x <= 0 || x >= 1) {
-    return 0;
-  }
+function betaPdf(unit, alpha, beta) {
   const logPdf =
-    (alpha - 1) * Math.log(x) + (beta - 1) * Math.log(1 - x) - logBeta(alpha, beta);
+    (alpha - 1) * Math.log(unit) +
+    (beta - 1) * Math.log(1 - unit) -
+    (logGamma(alpha) + logGamma(beta) - logGamma(alpha + beta));
   return Math.exp(logPdf);
 }
 
-function renderPertDiagram(canvas, distribution, accentColor, xLabel) {
-  const { minimum, mode, maximum, alpha, beta } = distribution;
-  canvas.hidden = false;
+function pertMean(distribution) {
+  const { minimum, mode, maximum, lambda_param: lambda } = distribution;
+  return (minimum + lambda * mode + maximum) / (lambda + 2);
+}
 
-  const { context, width, height } = setupCanvas(canvas);
-  drawChartBackground(context, width, height);
-
-  const { chartWidth, chartHeight } = getPlotArea(width, height);
+function buildPertCurve(distribution, pointCount = 241) {
+  const { minimum, maximum, alpha, beta } = distribution;
   const span = maximum - minimum;
-  const densityPoints = 80;
-  const densities = [];
+  const epsilon = 1e-6;
+  const points = [];
 
-  for (let index = 0; index < densityPoints; index += 1) {
-    const unit = index / (densityPoints - 1);
-    const value = minimum + span * unit;
-    const scaledUnit = (value - minimum) / span;
-    densities.push({
-      value,
-      density: betaPdf(scaledUnit, alpha, beta) / span,
-    });
+  for (let index = 0; index < pointCount; index += 1) {
+    const unit = Math.min(Math.max(index / (pointCount - 1), epsilon), 1 - epsilon);
+    const value = minimum + span * (index / (pointCount - 1));
+    points.push({ value, density: betaPdf(unit, alpha, beta) / span });
   }
 
-  const maxDensity = Math.max(...densities.map((point) => point.density), 1e-9);
-  const xTicks = computeTicks(minimum, maximum, 5);
-  const yTicks = computeTicks(0, maxDensity, 4);
-
-  drawAxes(context, width, height, {
-    xMin: minimum,
-    xMax: maximum,
-    yMin: 0,
-    yMax: maxDensity,
-    xLabel,
-    yLabel: "Relative density",
-    xTicks,
-    yTicks,
-    formatY: (value) => value.toExponential(1),
+  const peak = Math.max(...points.map((point) => point.density), Number.MIN_VALUE);
+  let cumulative = 0;
+  points.forEach((point, index) => {
+    if (index > 0) {
+      const previous = points[index - 1];
+      cumulative += ((previous.density + point.density) / 2) * (point.value - previous.value);
+    }
+    point.cumulative = cumulative;
+    point.relative = point.density / peak;
+  });
+  points.forEach((point) => {
+    point.cumulative = cumulative > 0 ? point.cumulative / cumulative : 0;
   });
 
-  context.beginPath();
-  context.moveTo(
-    valueToX(minimum, minimum, maximum, chartWidth),
-    valueToY(0, 0, maxDensity, chartHeight),
-  );
-  densities.forEach((point) => {
-    const x = valueToX(point.value, minimum, maximum, chartWidth);
-    const y = valueToY(point.density, 0, maxDensity, chartHeight);
-    context.lineTo(x, y);
-  });
-  context.lineTo(
-    valueToX(maximum, minimum, maximum, chartWidth),
-    valueToY(0, 0, maxDensity, chartHeight),
-  );
-  context.closePath();
-  context.fillStyle = `${accentColor}33`;
-  context.fill();
-  context.strokeStyle = accentColor;
-  context.lineWidth = 2;
-  context.stroke();
+  return points;
+}
 
-  const markers = [
-    { value: minimum, label: "Min", color: "#94a3b8" },
-    { value: mode, label: "Mode", color: accentColor },
-    { value: maximum, label: "Max", color: "#94a3b8" },
-  ];
+// ---------------------------------------------------------------------------
+// ECharts option builders
+// ---------------------------------------------------------------------------
 
-  markers.forEach((marker) => {
-    const x = valueToX(marker.value, minimum, maximum, chartWidth);
-    const baseY = valueToY(0, 0, maxDensity, chartHeight);
-    context.strokeStyle = marker.color;
-    context.lineWidth = 1.5;
-    context.beginPath();
-    context.moveTo(x, baseY - 4);
-    context.lineTo(x, baseY + 4);
-    context.stroke();
+function withAlpha(hex, alpha) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
 
-    context.fillStyle = marker.color;
-    context.font = "10px Inter, system-ui, sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "bottom";
-    context.fillText(`${marker.label}: ${formatAxisValue(marker.value)}`, x, CHART_PADDING.top - 6);
-  });
+function verticalGradient(color, topAlpha, bottomAlpha) {
+  return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    { offset: 0, color: withAlpha(color, topAlpha) },
+    { offset: 1, color: withAlpha(color, bottomAlpha) },
+  ]);
+}
 
-  attachChartInteraction(
-    canvas,
-    (event) => {
-      const point = getCanvasPoint(canvas, event);
-      const plotX = point.x - CHART_PADDING.left;
-      if (plotX < 0 || plotX > chartWidth) {
-        hideTooltip();
-        return;
-      }
+function tooltipHtml(theme, title, rows) {
+  const heading = `<div style="margin-bottom:6px;color:${theme.muted};font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase">${title}</div>`;
+  const body = rows
+    .map(
+      ([label, value]) =>
+        `<div style="display:flex;justify-content:space-between;gap:18px;line-height:1.6"><span style="color:${theme.muted}">${label}</span><span style="color:${theme.strong};font-weight:600">${value}</span></div>`,
+    )
+    .join("");
+  return heading + body;
+}
 
-      const value = minimum + (plotX / chartWidth) * span;
-      const scaledUnit = (value - minimum) / span;
-      const density = betaPdf(scaledUnit, alpha, beta) / span;
-
-      showTooltip(point.clientX, point.clientY, "PERT input", [
-        `Value: ${numberFormatter.format(value)}`,
-        `Relative density: ${density.toExponential(2)}`,
-        `Min / mode / max: ${formatAxisValue(minimum)} / ${formatAxisValue(mode)} / ${formatAxisValue(maximum)}`,
-      ]);
+function baseOption(theme, interactive, { trigger = "item", saveName = "chart" } = {}) {
+  const option = {
+    animation: interactive,
+    animationDuration: 500,
+    backgroundColor: "transparent",
+    textStyle: { fontFamily: FONT_FAMILY, color: theme.text, fontSize: theme.fontSize },
+    tooltip: {
+      show: interactive,
+      trigger,
+      confine: true,
+      backgroundColor: theme.tooltipBackground,
+      borderColor: theme.tooltipBorder,
+      borderWidth: 1,
+      padding: [10, 12],
+      textStyle: { color: theme.strong, fontSize: 12, fontFamily: FONT_FAMILY },
+      extraCssText: "border-radius:10px;box-shadow:0 12px 30px rgba(2,6,23,0.45);",
+      axisPointer: {
+        type: "line",
+        lineStyle: { color: theme.muted, type: "dashed", width: 1 },
+      },
     },
-    hideTooltip,
-  );
-}
+  };
 
-function lossToColor(loss, minLoss, maxLoss) {
-  const ratio = maxLoss === minLoss ? 0.5 : (loss - minLoss) / (maxLoss - minLoss);
-  const red = Math.round(56 + ratio * 192);
-  const green = Math.round(189 - ratio * 113);
-  const blue = Math.round(248 - ratio * 88);
-  return `rgb(${red}, ${green}, ${blue})`;
-}
-
-function renderScatterPlot(canvas, scatterPoints) {
-  if (!scatterPoints.length) {
-    canvas.hidden = true;
-    return;
+  if (interactive) {
+    option.toolbox = {
+      right: 0,
+      top: 0,
+      itemSize: 14,
+      itemGap: 10,
+      iconStyle: { borderColor: theme.muted },
+      emphasis: { iconStyle: { borderColor: theme.strong } },
+      feature: {
+        saveAsImage: {
+          title: "Save image",
+          name: saveName,
+          pixelRatio: 3,
+          backgroundColor: theme.saveBackground,
+        },
+      },
+    };
   }
 
-  canvas.hidden = false;
+  return option;
+}
 
-  const { context, width, height } = setupCanvas(canvas, SCATTER_CHART_HEIGHT);
-  drawChartBackground(context, width, height);
+const LEGEND_ITEM_WIDTH = 14;
+const LEGEND_ITEM_GAP = 14;
+const LEGEND_ROW_HEIGHT = 22;
+let textMeasureContext = null;
 
-  const { chartWidth, chartHeight } = getPlotArea(width, height);
-  const frequencies = scatterPoints.map((point) => point.frequency);
-  const magnitudes = scatterPoints.map((point) => point.magnitude);
-  const losses = scatterPoints.map((point) => point.aggregate_loss);
-  const minFrequency = Math.min(...frequencies);
-  const maxFrequency = Math.max(...frequencies);
-  const minMagnitude = Math.min(...magnitudes);
-  const maxMagnitude = Math.max(...magnitudes);
+function measureText(text, fontSize) {
+  textMeasureContext ??= document.createElement("canvas").getContext("2d");
+  textMeasureContext.font = `${fontSize}px ${FONT_FAMILY}`;
+  return textMeasureContext.measureText(text).width;
+}
+
+function legendRowCount(theme, names, availableWidth) {
+  let rows = 1;
+  let rowWidth = 0;
+  names.forEach((name) => {
+    const itemWidth = LEGEND_ITEM_WIDTH + 5 + measureText(name, theme.smallFontSize) + 4;
+    const nextWidth = rowWidth === 0 ? itemWidth : rowWidth + LEGEND_ITEM_GAP + itemWidth;
+    if (nextWidth > availableWidth && rowWidth > 0) {
+      rows += 1;
+      rowWidth = itemWidth;
+    } else {
+      rowWidth = nextWidth;
+    }
+  });
+  return rows;
+}
+
+function legendOption(theme, names, interactive) {
+  return {
+    type: "plain",
+    data: names,
+    ...(interactive ? { bottom: 0 } : { top: 0 }),
+    left: 0,
+    right: 0,
+    icon: "roundRect",
+    itemWidth: LEGEND_ITEM_WIDTH,
+    itemHeight: 3,
+    itemGap: LEGEND_ITEM_GAP,
+    textStyle: { color: theme.text, fontSize: theme.smallFontSize },
+    inactiveColor: theme.axisLine,
+  };
+}
+
+function gridOption(theme, interactive, legendNames, widthPx) {
+  const rows = widthPx ? legendRowCount(theme, legendNames, widthPx) : 1;
+  if (interactive) {
+    return { left: 66, right: 20, top: 36, bottom: 56 + rows * LEGEND_ROW_HEIGHT };
+  }
+  return { left: 66, right: 20, top: 18 + rows * LEGEND_ROW_HEIGHT, bottom: 48 };
+}
+
+function valueAxis(theme, { name, formatter, min, max, nameGap = 28, scale = false, interval }) {
+  return {
+    type: "value",
+    name,
+    nameLocation: "middle",
+    nameGap,
+    nameTextStyle: { color: theme.text, fontSize: theme.smallFontSize, fontWeight: 600 },
+    min,
+    max,
+    scale,
+    interval,
+    axisLine: { show: true, lineStyle: { color: theme.axisLine } },
+    axisTick: { show: true, lineStyle: { color: theme.axisLine } },
+    axisLabel: {
+      color: theme.muted,
+      fontSize: theme.smallFontSize,
+      formatter,
+      hideOverlap: true,
+    },
+    splitLine: { lineStyle: { color: theme.splitLine } },
+  };
+}
+
+function markerSeries(theme, markers) {
+  return markers.map((marker) => ({
+    name: marker.name,
+    type: "line",
+    data: [],
+    color: marker.color,
+    symbol: "none",
+    lineStyle: { color: marker.color, type: "dashed" },
+    tooltip: { show: true },
+    markLine: {
+      silent: false,
+      symbol: ["none", "none"],
+      animation: false,
+      label: { show: false },
+      lineStyle: { color: marker.color, type: [5, 4], width: 1.6, opacity: 0.95 },
+      emphasis: { label: { show: false }, lineStyle: { width: 2.6 } },
+      data: [{ xAxis: marker.value, name: marker.label, markerValue: marker.formatted }],
+    },
+  }));
+}
+
+function buildMarkers(definitions, format, legendFormat = format) {
+  return definitions.map(({ label, value, color }) => ({
+    label,
+    value,
+    color,
+    formatted: format(value),
+    name: `${label}  ${legendFormat(value)}`,
+  }));
+}
+
+function legendValueFormat(interactive, money) {
+  if (interactive) {
+    return money ? formatMoney : (value) => numberFormatter.format(value);
+  }
+  return money ? formatMoneyCompact : formatCompact;
+}
+
+function markLineTooltip(theme, params) {
+  return tooltipHtml(theme, "Marker", [[params.name, params.data.markerValue ?? params.value]]);
+}
+
+function histogramOption(theme, interactive, widthPx, config) {
+  const { histogram, color, xName, money, markerDefinitions, saveName, binLabel } = config;
+  const { bin_edges: edges, counts } = histogram;
+  const total = counts.reduce((sum, count) => sum + count, 0) || 1;
+  const axisFormat = money ? formatMoneyCompact : formatCompact;
+  const valueFormat = money ? formatMoney : (value) => numberFormatter.format(value);
+
+  let cumulative = 0;
+  const bins = counts.map((count, index) => {
+    cumulative += count;
+    return [edges[index], edges[index + 1], count, count / total, cumulative / total];
+  });
+
+  const markers = buildMarkers(markerDefinitions, valueFormat, legendValueFormat(interactive, money));
+  const barFill = verticalGradient(color, 0.95, 0.55);
+
+  const legendNames = markers.map((marker) => marker.name);
+
+  return {
+    ...baseOption(theme, interactive, { trigger: "item", saveName }),
+    legend: legendOption(theme, legendNames, interactive),
+    grid: gridOption(theme, interactive, legendNames, widthPx),
+    xAxis: valueAxis(theme, { name: xName, formatter: axisFormat, scale: true }),
+    yAxis: valueAxis(theme, { name: "Simulations", formatter: formatCompact, nameGap: 46 }),
+    series: [
+      {
+        name: binLabel,
+        type: "custom",
+        data: bins,
+        encode: { x: [0, 1], y: 2 },
+        itemStyle: { color: barFill },
+        emphasis: { itemStyle: { color: withAlpha(color, 1), shadowBlur: 8, shadowColor: withAlpha(color, 0.5) } },
+        renderItem(params, api) {
+          const topLeft = api.coord([api.value(0), api.value(2)]);
+          const bottomRight = api.coord([api.value(1), 0]);
+          const width = bottomRight[0] - topLeft[0];
+          const gap = width > 6 ? 1 : 0;
+          const shape = echarts.graphic.clipRectByRect(
+            { x: topLeft[0] + gap / 2, y: topLeft[1], width: Math.max(width - gap, 0.5), height: bottomRight[1] - topLeft[1] },
+            {
+              x: params.coordSys.x,
+              y: params.coordSys.y,
+              width: params.coordSys.width,
+              height: params.coordSys.height,
+            },
+          );
+          return shape && { type: "rect", shape, style: api.style() };
+        },
+        tooltip: {
+          formatter(params) {
+            const [start, end, count, share, cumulativeShare] = params.data;
+            return tooltipHtml(theme, binLabel, [
+              ["Range", `${valueFormat(start)} – ${valueFormat(end)}`],
+              ["Simulations", numberFormatter.format(count)],
+              ["Share", percentFormatter.format(share)],
+              ["Cumulative", percentFormatter.format(cumulativeShare)],
+            ]);
+          },
+        },
+      },
+      ...markerSeries(theme, markers).map((series) => ({
+        ...series,
+        tooltip: { formatter: (params) => markLineTooltip(theme, params) },
+      })),
+    ],
+  };
+}
+
+function frequencyHistogramOption(data, theme, interactive, widthPx) {
+  const { frequency } = data;
+  return histogramOption(theme, interactive, widthPx, {
+    histogram: frequency.histogram,
+    color: theme.colors.frequency,
+    xName: "Events per year",
+    money: false,
+    binLabel: "Frequency bin",
+    saveName: "frequency-histogram",
+    markerDefinitions: [
+      { label: "P5", value: frequency.p5, color: theme.colors.p5 },
+      { label: "Mean", value: frequency.mean, color: theme.colors.mean },
+      { label: "P95", value: frequency.p95, color: theme.colors.p95 },
+    ],
+  });
+}
+
+function magnitudeHistogramOption(data, theme, interactive, widthPx) {
+  const { magnitude } = data;
+  return histogramOption(theme, interactive, widthPx, {
+    histogram: magnitude.histogram,
+    color: theme.colors.magnitude,
+    xName: "Loss per event ($)",
+    money: true,
+    binLabel: "Magnitude bin",
+    saveName: "magnitude-histogram",
+    markerDefinitions: [
+      { label: "P5", value: magnitude.p5, color: theme.colors.p5 },
+      { label: "Mean", value: magnitude.mean, color: theme.colors.mean },
+      { label: "P95", value: magnitude.p95, color: theme.colors.p95 },
+    ],
+  });
+}
+
+function aggregateHistogramOption(data, theme, interactive, widthPx) {
+  const loss = data.aggregate_loss;
+  return histogramOption(theme, interactive, widthPx, {
+    histogram: loss.histogram,
+    color: theme.colors.aggregate,
+    xName: "Annual loss ($)",
+    money: true,
+    binLabel: "Annual loss bin",
+    saveName: "aggregate-loss-histogram",
+    markerDefinitions: [
+      { label: "Mean", value: loss.mean, color: theme.colors.mean },
+      { label: "VaR 95", value: loss.var_95, color: theme.colors.var95 },
+      { label: "VaR 99", value: loss.var_99, color: theme.colors.var99 },
+      { label: "TVaR 95", value: loss.tvar_95, color: theme.colors.tvar95 },
+      { label: "TVaR 99", value: loss.tvar_99, color: theme.colors.tvar99 },
+    ],
+  });
+}
+
+function exceedanceOption(data, theme, interactive, widthPx) {
+  const loss = data.aggregate_loss;
+  const points = loss.exceedance_curve.points;
+  const color = theme.colors.exceedance;
+  const markers = buildMarkers(
+    [
+      { label: "Mean", value: loss.mean, color: theme.colors.mean },
+      { label: "VaR 95", value: loss.var_95, color: theme.colors.var95 },
+      { label: "VaR 99", value: loss.var_99, color: theme.colors.var99 },
+    ],
+    formatMoney,
+    legendValueFormat(interactive, true),
+  );
+
+  const legendNames = markers.map((marker) => marker.name);
+
+  return {
+    ...baseOption(theme, interactive, { trigger: "axis", saveName: "loss-exceedance-curve" }),
+    legend: legendOption(theme, legendNames, interactive),
+    grid: gridOption(theme, interactive, legendNames, widthPx),
+    tooltip: {
+      ...baseOption(theme, interactive).tooltip,
+      trigger: "axis",
+      formatter(params) {
+        const point = params.find((item) => item.seriesName === "Exceedance probability");
+        if (!point) {
+          return "";
+        }
+        const [lossValue, probability] = point.data;
+        const rows = [
+          ["Annual loss", formatMoney(lossValue)],
+          ["P(loss > amount)", percentFormatter.format(probability)],
+        ];
+        if (probability > 0) {
+          rows.push(["Return period", `≈ 1 in ${numberFormatter.format(1 / probability)} years`]);
+        }
+        return tooltipHtml(theme, "Loss exceedance", rows);
+      },
+    },
+    xAxis: valueAxis(theme, { name: "Annual loss ($)", formatter: formatMoneyCompact, scale: true }),
+    yAxis: valueAxis(theme, {
+      name: "Exceedance probability",
+      formatter: (value) => percentFormatter.format(value),
+      min: 0,
+      max: 1,
+      interval: 0.2,
+      nameGap: 46,
+    }),
+    series: [
+      {
+        name: "Exceedance probability",
+        type: "line",
+        data: points.map((point) => [point.loss, point.exceedance_probability]),
+        showSymbol: false,
+        symbolSize: 7,
+        color,
+        lineStyle: { width: 2.5, color },
+        areaStyle: { color: verticalGradient(color, 0.35, 0.02) },
+        emphasis: { focus: "none", lineStyle: { width: 2.5 } },
+      },
+      ...markerSeries(theme, markers),
+    ],
+  };
+}
+
+function pertOption(distribution, theme, interactive, widthPx, { color, xName, money, saveName }) {
+  const curve = buildPertCurve(distribution);
+  const valueFormat = money ? formatMoney : (value) => numberFormatter.format(value);
+  const markers = buildMarkers(
+    [
+      { label: "Min", value: distribution.minimum, color: theme.colors.bound },
+      { label: "Mode", value: distribution.mode, color },
+      { label: "Mean", value: pertMean(distribution), color: theme.colors.mean },
+      { label: "Max", value: distribution.maximum, color: theme.colors.bound },
+    ],
+    valueFormat,
+    legendValueFormat(interactive, money),
+  );
+
+  const legendNames = markers.map((marker) => marker.name);
+
+  return {
+    ...baseOption(theme, interactive, { trigger: "axis", saveName }),
+    legend: legendOption(theme, legendNames, interactive),
+    grid: gridOption(theme, interactive, legendNames, widthPx),
+    tooltip: {
+      ...baseOption(theme, interactive).tooltip,
+      trigger: "axis",
+      formatter(params) {
+        const point = params.find((item) => item.seriesName === "PERT density");
+        if (!point) {
+          return "";
+        }
+        const [value, relative, density, cumulative] = point.data;
+        return tooltipHtml(theme, "PERT input", [
+          ["Value", valueFormat(value)],
+          ["Density (vs. peak)", percentFormatter.format(relative)],
+          ["Density", densityFormatter.format(density)],
+          ["P(X ≤ value)", percentFormatter.format(cumulative)],
+          ["P(X > value)", percentFormatter.format(1 - cumulative)],
+        ]);
+      },
+    },
+    xAxis: valueAxis(theme, { name: xName, formatter: money ? formatMoneyCompact : formatCompact, scale: true }),
+    yAxis: valueAxis(theme, {
+      name: "Density (vs. peak)",
+      formatter: (value) => percentFormatter.format(value),
+      min: 0,
+      max: 1,
+      interval: 0.25,
+      nameGap: 46,
+    }),
+    series: [
+      {
+        name: "PERT density",
+        type: "line",
+        data: curve.map((point) => [point.value, point.relative, point.density, point.cumulative]),
+        encode: { x: 0, y: 1 },
+        showSymbol: false,
+        smooth: false,
+        color,
+        lineStyle: { width: 2.25, color },
+        areaStyle: { color: verticalGradient(color, 0.4, 0.04) },
+      },
+      ...markerSeries(theme, markers),
+    ],
+  };
+}
+
+function frequencyPertOption(data, theme, interactive, widthPx) {
+  return pertOption(data.frequency.distribution, theme, interactive, widthPx, {
+    color: theme.colors.frequency,
+    xName: "Events per year",
+    money: false,
+    saveName: "frequency-pert",
+  });
+}
+
+function magnitudePertOption(data, theme, interactive, widthPx) {
+  return pertOption(data.magnitude.distribution, theme, interactive, widthPx, {
+    color: theme.colors.magnitude,
+    xName: "Loss per event ($)",
+    money: true,
+    saveName: "magnitude-pert",
+  });
+}
+
+function scatterOption(data, theme, interactive) {
+  const points = data.scatter.map((point) => [point.frequency, point.magnitude, point.aggregate_loss]);
+  const losses = points.map((point) => point[2]);
   const minLoss = Math.min(...losses);
   const maxLoss = Math.max(...losses);
-  const xTicks = computeTicks(minFrequency, maxFrequency, 5);
-  const yTicks = computeTicks(minMagnitude, maxMagnitude, 5);
-  const plottedPoints = scatterPoints.map((point) => ({
-    ...point,
-    x: valueToX(point.frequency, minFrequency, maxFrequency, chartWidth),
-    y: valueToY(point.magnitude, minMagnitude, maxMagnitude, chartHeight),
-    color: lossToColor(point.aggregate_loss, minLoss, maxLoss),
-  }));
 
-  drawAxes(context, width, height, {
-    xMin: minFrequency,
-    xMax: maxFrequency,
-    yMin: minMagnitude,
-    yMax: maxMagnitude,
-    xLabel: "Frequency (events / year)",
-    yLabel: "Magnitude ($)",
-    xTicks,
-    yTicks,
-  });
-
-  plottedPoints.forEach((point) => {
-    context.fillStyle = point.color;
-    context.beginPath();
-    context.arc(point.x, point.y, 3, 0, Math.PI * 2);
-    context.fill();
-  });
-
-  drawLegend(context, [
-    { label: `Low loss (${formatAxisValue(minLoss)})`, color: lossToColor(minLoss, minLoss, maxLoss) },
-    { label: `High loss (${formatAxisValue(maxLoss)})`, color: lossToColor(maxLoss, minLoss, maxLoss) },
-  ], width);
-
-  attachChartInteraction(
-    canvas,
-    (event) => {
-      const point = getCanvasPoint(canvas, event);
-      let nearest = null;
-      let nearestDistance = Infinity;
-
-      plottedPoints.forEach((candidate) => {
-        const distance = Math.hypot(point.x - candidate.x, point.y - candidate.y);
-        if (distance < nearestDistance && distance <= 12) {
-          nearest = candidate;
-          nearestDistance = distance;
-        }
-      });
-
-      if (!nearest) {
-        hideTooltip();
-        return;
-      }
-
-      showTooltip(point.clientX, point.clientY, "Simulation draw", [
-        `Frequency: ${numberFormatter.format(nearest.frequency)}`,
-        `Magnitude: ${numberFormatter.format(nearest.magnitude)}`,
-        `Aggregate loss: ${numberFormatter.format(nearest.aggregate_loss)}`,
-      ]);
+  return {
+    ...baseOption(theme, interactive, { trigger: "item", saveName: "frequency-vs-magnitude" }),
+    grid: { left: 66, right: 104, top: interactive ? 32 : 12, bottom: 48 },
+    xAxis: valueAxis(theme, { name: "Events per year", formatter: formatCompact, scale: true }),
+    yAxis: valueAxis(theme, { name: "Loss per event ($)", formatter: formatMoneyCompact, scale: true, nameGap: 46 }),
+    visualMap: {
+      type: "continuous",
+      dimension: 2,
+      min: minLoss,
+      max: maxLoss,
+      calculable: interactive,
+      realtime: true,
+      orient: "vertical",
+      right: 0,
+      top: "middle",
+      itemWidth: 12,
+      itemHeight: interactive ? 220 : 150,
+      text: interactive
+        ? ["Annual loss", ""]
+        : [`High ${formatMoneyCompact(maxLoss)}`, `Low ${formatMoneyCompact(minLoss)}`],
+      textGap: 8,
+      textStyle: { color: theme.text, fontSize: theme.smallFontSize },
+      formatter: (value) => formatMoneyCompact(value),
+      inRange: { color: theme.colors.lossScale },
     },
-    hideTooltip,
-  );
+    series: [
+      {
+        name: "Simulation draw",
+        type: "scatter",
+        data: points,
+        symbolSize: theme.symbolSize,
+        itemStyle: { opacity: 0.8 },
+        emphasis: { scale: 2, itemStyle: { opacity: 1, borderColor: theme.strong, borderWidth: 1 } },
+        tooltip: {
+          formatter(params) {
+            const [frequency, magnitude, aggregate] = params.data;
+            return tooltipHtml(theme, "Simulation draw", [
+              ["Frequency", `${numberFormatter.format(frequency)} / year`],
+              ["Magnitude", formatMoney(magnitude)],
+              ["Aggregate loss", formatMoney(aggregate)],
+            ]);
+          },
+        },
+      },
+    ],
+  };
 }
+
+const CHART_SPECS = {
+  frequencyHistogram: {
+    elementId: "frequency-chart",
+    build: frequencyHistogramOption,
+    title: "Frequency histogram",
+    caption: "Simulated annual event frequency with P5, mean and P95.",
+  },
+  magnitudeHistogram: {
+    elementId: "magnitude-chart",
+    build: magnitudeHistogramOption,
+    title: "Magnitude histogram",
+    caption: "Simulated loss per event with P5, mean and P95.",
+  },
+  aggregateHistogram: {
+    elementId: "aggregate-loss-chart",
+    build: aggregateHistogramOption,
+    title: "Aggregate loss histogram",
+    caption: "Annual loss (frequency × magnitude) across all simulations, with mean and VaR / TVaR tail-risk markers.",
+  },
+  exceedance: {
+    elementId: "lec-chart",
+    build: exceedanceOption,
+    title: "Loss exceedance curve",
+    caption: "Probability that the annual loss exceeds a given amount; VaR 95 / 99 mark the 5% and 1% thresholds.",
+  },
+  frequencyPert: {
+    elementId: "frequency-pert-chart",
+    build: frequencyPertOption,
+    title: "Frequency PERT input",
+    caption: "Fitted Beta PERT density for events per year.",
+  },
+  magnitudePert: {
+    elementId: "magnitude-pert-chart",
+    build: magnitudePertOption,
+    title: "Magnitude PERT input",
+    caption: "Fitted Beta PERT density for loss per event.",
+  },
+  scatter: {
+    elementId: "scatter-chart",
+    build: scatterOption,
+    title: "Frequency vs magnitude",
+    caption: `Each point is one simulation draw (up to 2,000 shown), colored by its aggregate annual loss.`,
+  },
+};
+
+function disposeScreenCharts() {
+  screenCharts.forEach(({ chart, observer }) => {
+    observer.disconnect();
+    chart.dispose();
+  });
+  screenCharts.length = 0;
+}
+
+function renderScreenCharts(data) {
+  disposeScreenCharts();
+
+  Object.values(CHART_SPECS).forEach((spec) => {
+    const element = document.getElementById(spec.elementId);
+    if (!element) {
+      return;
+    }
+    const chart = echarts.init(element, null, { renderer: "svg" });
+    const option = spec.build(data, SCREEN_THEME, true, element.clientWidth);
+    chart.setOption(option);
+    const legendNames = option.legend?.data ?? [];
+    const observer = new ResizeObserver(() => {
+      if (legendNames.length) {
+        chart.setOption({ grid: gridOption(SCREEN_THEME, true, legendNames, element.clientWidth) });
+      }
+      chart.resize();
+    });
+    observer.observe(element);
+    screenCharts.push({ chart, observer });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Result page
+// ---------------------------------------------------------------------------
 
 function renderVariableStats(container, variable) {
   const stats = [
@@ -856,68 +867,28 @@ function renderResults(data) {
   renderVariableDetails(frequencyDetails, data.frequency.distribution);
   renderVariableDetails(magnitudeDetails, data.magnitude.distribution);
 
-  renderHistogram(frequencyChart, data.frequency.histogram, {
-    barColor: "#38bdf8",
-    xLabel: "Frequency (events / year)",
-    yLabel: "Simulation count",
-    tooltipTitle: "Frequency bin",
-  });
-  renderHistogram(magnitudeChart, data.magnitude.histogram, {
-    barColor: "#4ade80",
-    xLabel: "Magnitude ($)",
-    yLabel: "Simulation count",
-    tooltipTitle: "Magnitude bin",
-  });
-  renderHistogram(aggregateLossChart, data.aggregate_loss.histogram, {
-    barColor: "#fbbf24",
-    xLabel: "Annual loss ($)",
-    yLabel: "Simulation count",
-    tooltipTitle: "Loss bin",
-    markers: [
-      {
-        value: data.aggregate_loss.var_95,
-        label: "VaR 95",
-        color: "#f87171",
-      },
-      {
-        value: data.aggregate_loss.var_99,
-        label: "VaR 99",
-        color: "#fb923c",
-      },
-      {
-        value: data.aggregate_loss.tvar_95,
-        label: "TVaR 95",
-        color: "#f472b6",
-      },
-    ],
-  });
-  renderExceedanceCurve(lecChart, data.aggregate_loss.exceedance_curve);
-  renderPertDiagram(
-    frequencyPertChart,
-    data.frequency.distribution,
-    "#38bdf8",
-    "Frequency (events / year)",
-  );
-  renderPertDiagram(
-    magnitudePertChart,
-    data.magnitude.distribution,
-    "#4ade80",
-    "Magnitude ($)",
-  );
-  renderScatterPlot(scatterChart, data.scatter);
-
   lastSimulationData = data;
   exportPdfButton.disabled = false;
   resultsSection.hidden = false;
   emptyState.hidden = true;
+
+  if (window.echarts) {
+    renderScreenCharts(data);
+  } else {
+    setStatus("Chart library failed to load. Check your network connection.", "error");
+  }
 }
 
-function pdfPageBottom(doc) {
-  return doc.internal.pageSize.getHeight() - PDF_MARGIN;
-}
+// ---------------------------------------------------------------------------
+// PDF export
+// ---------------------------------------------------------------------------
 
 function pdfPageWidth(doc) {
   return doc.internal.pageSize.getWidth();
+}
+
+function pdfPageHeight(doc) {
+  return doc.internal.pageSize.getHeight();
 }
 
 function pdfUsableWidth(doc) {
@@ -937,11 +908,28 @@ function pdfAddTextLine(doc, x, y, text, options = {}) {
   return y + fontSize * 0.38 + 1.5;
 }
 
+function pdfAddSectionHeading(doc, y, text) {
+  const nextY = pdfAddTextLine(doc, PDF_MARGIN, y, text, {
+    fontSize: 11,
+    bold: true,
+    color: [15, 23, 42],
+  });
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(PDF_MARGIN, nextY - 2.2, PDF_MARGIN + pdfUsableWidth(doc), nextY - 2.2);
+  return nextY + 1;
+}
+
 function pdfAddColumnBlock(doc, x, y, width, title, rows) {
-  let cursorY = pdfAddTextLine(doc, x, y, title, { fontSize: 10, bold: true, color: [15, 23, 42] });
+  let cursorY = pdfAddTextLine(doc, x, y, title, { fontSize: 10, bold: true, color: [2, 132, 199] });
   const labelWidth = width * 0.52;
 
-  rows.forEach(([label, value]) => {
+  rows.forEach(([label, value], index) => {
+    if (index % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(x - 1, cursorY - 2.8, width + 1, PDF_ROW_HEIGHT, "F");
+    }
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
@@ -962,45 +950,39 @@ function pdfAddSummaryPage(doc, data) {
   const generatedAt = new Date().toLocaleString();
   let y = PDF_MARGIN;
 
-  y = pdfAddTextLine(doc, PDF_MARGIN, y, "CRQ Monte Carlo Simulation Report", {
+  doc.setFillColor(2, 132, 199);
+  doc.rect(PDF_MARGIN, y - 4, 1.4, 14, "F");
+  const textX = PDF_MARGIN + 4;
+
+  y = pdfAddTextLine(doc, textX, y + 1, "CRQ Monte Carlo Simulation Report", {
     fontSize: 15,
     bold: true,
     color: [15, 23, 42],
   });
-  y = pdfAddTextLine(doc, PDF_MARGIN, y, `Generated: ${generatedAt}`, { fontSize: 9, color: [71, 85, 105] });
+  y = pdfAddTextLine(doc, textX, y, `Generated: ${generatedAt}`, { fontSize: 9, color: [71, 85, 105] });
   y = pdfAddTextLine(
     doc,
-    PDF_MARGIN,
+    textX,
     y,
     `Seed: ${data.seed}  |  Iterations: ${numberFormatter.format(data.iterations)}`,
     { fontSize: 9, color: [71, 85, 105] },
   );
-  y += PDF_SECTION_GAP;
+  y += PDF_SECTION_GAP + 2;
 
   const usableWidth = pdfUsableWidth(doc);
   const columnWidth = (usableWidth - 8) / 2;
   const leftX = PDF_MARGIN;
   const rightX = PDF_MARGIN + columnWidth + 8;
 
-  y = pdfAddTextLine(doc, PDF_MARGIN, y, "Input parameters", {
-    fontSize: 11,
-    bold: true,
-    color: [15, 23, 42],
-  });
-  y += 1;
+  y = pdfAddSectionHeading(doc, y, "Input parameters");
 
   const inputBottom = Math.max(
     pdfAddColumnBlock(doc, leftX, y, columnWidth, "Frequency", buildDistributionRowsShort(data.frequency.distribution)),
     pdfAddColumnBlock(doc, rightX, y, columnWidth, "Magnitude", buildDistributionRowsShort(data.magnitude.distribution)),
   );
-  y = inputBottom + PDF_SECTION_GAP;
+  y = inputBottom + PDF_SECTION_GAP + 2;
 
-  y = pdfAddTextLine(doc, PDF_MARGIN, y, "Simulation results", {
-    fontSize: 11,
-    bold: true,
-    color: [15, 23, 42],
-  });
-  y += 1;
+  y = pdfAddSectionHeading(doc, y, "Simulation results");
 
   const statsColumnWidth = (usableWidth - 12) / 3;
   const statsColumns = [
@@ -1038,7 +1020,7 @@ function pdfAddSummaryPage(doc, data) {
     ]);
   };
 
-  const resultsBottom = Math.max(
+  return Math.max(
     ...statsColumns.map((column, index) =>
       pdfAddColumnBlock(
         doc,
@@ -1050,52 +1032,80 @@ function pdfAddSummaryPage(doc, data) {
       ),
     ),
   );
-
-  return resultsBottom;
 }
 
-function pdfStartChartPages(doc) {
-  doc.addPage();
-  return PDF_MARGIN;
-}
-
-function pdfAddChartBlock(doc, y, canvas, title, chartHeight) {
-  if (!canvas || canvas.hidden) {
-    return y;
-  }
-
-  const blockHeight = PDF_CHART_TITLE_HEIGHT + chartHeight + PDF_CHART_GAP;
-  if (y + blockHeight > pdfPageBottom(doc)) {
-    doc.addPage();
-    y = PDF_MARGIN;
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.text(title, PDF_MARGIN, y + 4);
-  y += PDF_CHART_TITLE_HEIGHT;
-
-  const maxWidth = pdfUsableWidth(doc);
-  const aspectRatio = canvas.height / canvas.width;
-  let drawHeight = chartHeight;
-  let drawWidth = drawHeight / aspectRatio;
-  if (drawWidth > maxWidth) {
-    drawWidth = maxWidth;
-    drawHeight = drawWidth * aspectRatio;
-  }
-
-  const imageData = canvas.toDataURL("image/png");
-  doc.addImage(imageData, "PNG", PDF_MARGIN, y, drawWidth, drawHeight);
-  return y + drawHeight + PDF_CHART_GAP;
-}
-
-function pdfAddChartPages(doc, canvases) {
-  let y = pdfStartChartPages(doc);
-
-  canvases.forEach(({ canvas, title, height }) => {
-    y = pdfAddChartBlock(doc, y, canvas, title, height);
+function renderChartImage(spec, data, widthMm, heightMm) {
+  const container = document.createElement("div");
+  Object.assign(container.style, {
+    position: "fixed",
+    left: "-10000px",
+    top: "0",
+    width: `${Math.round(widthMm * PDF_PX_PER_MM)}px`,
+    height: `${Math.round(heightMm * PDF_PX_PER_MM)}px`,
   });
+  document.body.appendChild(container);
+
+  const chart = echarts.init(container, null, { renderer: "canvas", devicePixelRatio: PDF_PIXEL_RATIO });
+  try {
+    chart.setOption(spec.build(data, PRINT_THEME, false, container.clientWidth));
+    return chart.getDataURL({ type: "png", pixelRatio: PDF_PIXEL_RATIO, backgroundColor: "#ffffff" });
+  } finally {
+    chart.dispose();
+    container.remove();
+  }
+}
+
+function pdfAddChartBlock(doc, data, spec, x, y, width, height) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(spec.title, x, y + 3.5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(doc.splitTextToSize(spec.caption, width)[0], x, y + 7.5);
+
+  const imageY = y + PDF_CHART_HEADER_HEIGHT;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, imageY, width, height, 1.5, 1.5, "S");
+
+  const inset = 1.5;
+  const image = renderChartImage(spec, data, width - inset * 2, height - inset * 2);
+  doc.addImage(image, "PNG", x + inset, imageY + inset, width - inset * 2, height - inset * 2, undefined, "FAST");
+  return imageY + height;
+}
+
+function pdfAddChartPage(doc, data, heading, rows) {
+  doc.addPage();
+  let y = pdfAddSectionHeading(doc, PDF_MARGIN, heading) + 1;
+  const usableWidth = pdfUsableWidth(doc);
+
+  rows.forEach(({ specs, height }) => {
+    const width = (usableWidth - PDF_COLUMN_GAP * (specs.length - 1)) / specs.length;
+    const bottoms = specs.map((spec, index) =>
+      pdfAddChartBlock(doc, data, spec, PDF_MARGIN + index * (width + PDF_COLUMN_GAP), y, width, height),
+    );
+    y = Math.max(...bottoms) + PDF_BLOCK_GAP;
+  });
+}
+
+function pdfAddFooters(doc, data) {
+  const pageCount = doc.getNumberOfPages();
+  const footerY = pdfPageHeight(doc) - 7;
+
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(PDF_MARGIN, footerY - 3.5, pdfPageWidth(doc) - PDF_MARGIN, footerY - 3.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`CRQ Monte Carlo Simulation Report  |  Seed ${data.seed}`, PDF_MARGIN, footerY);
+    doc.text(`Page ${page} of ${pageCount}`, pdfPageWidth(doc) - PDF_MARGIN, footerY, { align: "right" });
+  }
 }
 
 function buildDistributionRowsShort(distribution) {
@@ -1113,37 +1123,43 @@ function buildStatsRows(stats) {
   return stats.map(([label, value]) => [label, numberFormatter.format(value)]);
 }
 
+function buildSimulationPdf(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+
+  pdfAddSummaryPage(doc, data);
+  pdfAddChartPage(doc, data, "Loss distribution", [
+    { specs: [CHART_SPECS.aggregateHistogram], height: 72 },
+    { specs: [CHART_SPECS.exceedance], height: 72 },
+    { specs: [CHART_SPECS.frequencyHistogram, CHART_SPECS.magnitudeHistogram], height: 62 },
+  ]);
+  pdfAddChartPage(doc, data, "Input uncertainty", [
+    { specs: [CHART_SPECS.frequencyPert, CHART_SPECS.magnitudePert], height: 62 },
+    { specs: [CHART_SPECS.scatter], height: 118 },
+  ]);
+  pdfAddFooters(doc, data);
+
+  return doc;
+}
+
 async function exportSimulationPdf() {
   if (!lastSimulationData) {
     setStatus("Run a simulation before exporting.", "error");
     return;
   }
 
-  if (!window.jspdf?.jsPDF) {
-    setStatus("PDF library failed to load. Check your network connection.", "error");
+  if (!window.jspdf?.jsPDF || !window.echarts) {
+    setStatus("PDF or chart library failed to load. Check your network connection.", "error");
     return;
   }
 
   exportPdfButton.disabled = true;
   exportPdfButton.textContent = "Exporting...";
-  hideTooltip();
 
   try {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     const data = lastSimulationData;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-    pdfAddSummaryPage(doc, data);
-    pdfAddChartPages(doc, [
-      { canvas: frequencyChart, title: "Frequency Histogram", height: PDF_STANDARD_CHART_HEIGHT },
-      { canvas: magnitudeChart, title: "Magnitude Histogram", height: PDF_STANDARD_CHART_HEIGHT },
-      { canvas: aggregateLossChart, title: "Aggregate Loss Histogram", height: PDF_STANDARD_CHART_HEIGHT },
-      { canvas: lecChart, title: "Loss Exceedance Curve", height: PDF_STANDARD_CHART_HEIGHT },
-      { canvas: frequencyPertChart, title: "Frequency PERT", height: PDF_STANDARD_CHART_HEIGHT },
-      { canvas: magnitudePertChart, title: "Magnitude PERT", height: PDF_STANDARD_CHART_HEIGHT },
-      { canvas: scatterChart, title: "Frequency vs Magnitude", height: PDF_SCATTER_CHART_HEIGHT },
-    ]);
-
+    const doc = buildSimulationPdf(data);
     const timestamp = new Date().toISOString().slice(0, 10);
     doc.save(`crq-simulation-${data.seed}-${timestamp}.pdf`);
     setStatus("PDF exported successfully.", "success");
@@ -1168,6 +1184,7 @@ function initResultPage() {
 
   try {
     const data = JSON.parse(raw);
+    clearStatus();
     renderResults(data);
   } catch (error) {
     emptyState.hidden = false;
