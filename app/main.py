@@ -6,17 +6,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
 from inventory import init_db, list_inventory, process_upload
-from processes import (
-    add_entries,
-    add_entry,
-    add_from_inventory,
-    assign_criticalities,
-    init_processes,
-    list_processes,
-    missing_names,
-    process_catalog_upload,
-    update_entry,
-)
+from processes import add_process, init_processes, list_processes, update_process, upload_processes
+from systems import add_system, init_systems, list_systems, update_system, upload_systems
+from units import add_unit, init_units, list_units, update_unit, upload_units
 from vulnerabilities import clear_findings, init_vulnerability_db, list_findings, scan_vulnerabilities
 from monte_carlo import run_monte_carlo
 
@@ -24,6 +16,8 @@ from monte_carlo import run_monte_carlo
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    init_units()
+    init_systems()
     init_processes()
     init_vulnerability_db()
     yield
@@ -231,7 +225,6 @@ async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
     content = await file.read()
     status_code, body = process_upload(file.filename or "", content)
     if status_code == 200:
-        add_from_inventory(list_inventory()["items"])
         clear_findings()
         _scan_status, scan_body = scan_vulnerabilities()
         body["scan_ok"] = bool(scan_body.get("ok"))
@@ -242,27 +235,92 @@ async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=body)
 
 
-class ProcessEntryBody(BaseModel):
-    business_process: str = ""
+class UnitBody(BaseModel):
+    ou_id: str = ""
     organisational_unit: str = ""
+    primary_responsibilities: str = ""
+    oversight: str = ""
+
+
+class UnitUpdateBody(UnitBody):
+    previous_ou_id: str = ""
+
+
+class SystemBody(BaseModel):
+    system_id: str = ""
+    software_system: str = ""
+    primary_function: str = ""
+    business_owner_ou_id: str = ""
+    technical_custodian_ou_id: str = ""
     criticality: str = ""
+    data_classification: str = ""
+    deployment: str = ""
+
+
+class SystemUpdateBody(SystemBody):
+    previous_system_id: str = ""
+
+
+class ProcessEntryBody(BaseModel):
+    bp_id: str = ""
+    ou_id: str = ""
+    business_process: str = ""
+    activity_scope: str = ""
+    primary_system_ids: str = ""
+    criticality: str = ""
+    key_information: str = ""
 
 
 class ProcessUpdateBody(ProcessEntryBody):
-    id: int
+    previous_bp_id: str = ""
 
 
-class ProcessEntriesBody(BaseModel):
-    entries: list[ProcessEntryBody]
+@app.get("/units")
+def get_units() -> dict:
+    return list_units()
 
 
-class ProcessCriticalityBody(BaseModel):
-    id: int
-    criticality: str = ""
+@app.post("/units")
+async def post_units(file: UploadFile = File(...)) -> JSONResponse:
+    content = await file.read()
+    status_code, body = upload_units(file.filename or "", content)
+    return JSONResponse(status_code=status_code, content=body)
 
 
-class ProcessCriticalitiesBody(BaseModel):
-    entries: list[ProcessCriticalityBody]
+@app.post("/units/entry")
+def post_unit_entry(body: UnitBody) -> JSONResponse:
+    status_code, payload = add_unit(body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.put("/units/entry")
+def put_unit_entry(body: UnitUpdateBody) -> JSONResponse:
+    status_code, payload = update_unit(body.previous_ou_id, body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.get("/systems")
+def get_systems() -> dict:
+    return list_systems()
+
+
+@app.post("/systems")
+async def post_systems(file: UploadFile = File(...)) -> JSONResponse:
+    content = await file.read()
+    status_code, body = upload_systems(file.filename or "", content)
+    return JSONResponse(status_code=status_code, content=body)
+
+
+@app.post("/systems/entry")
+def post_system_entry(body: SystemBody) -> JSONResponse:
+    status_code, payload = add_system(body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.put("/systems/entry")
+def put_system_entry(body: SystemUpdateBody) -> JSONResponse:
+    status_code, payload = update_system(body.previous_system_id, body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.get("/processes")
@@ -270,40 +328,22 @@ def get_processes() -> dict:
     return list_processes()
 
 
-@app.get("/processes/missing")
-def get_missing_processes() -> dict:
-    names = [item["business_process"] for item in list_inventory()["items"]]
-    return {"names": missing_names(names)}
-
-
 @app.post("/processes")
 async def post_processes(file: UploadFile = File(...)) -> JSONResponse:
     content = await file.read()
-    status_code, body = process_catalog_upload(file.filename or "", content)
+    status_code, body = upload_processes(file.filename or "", content)
     return JSONResponse(status_code=status_code, content=body)
 
 
 @app.post("/processes/entry")
 def post_process_entry(body: ProcessEntryBody) -> JSONResponse:
-    status_code, payload = add_entry(body.model_dump())
+    status_code, payload = add_process(body.model_dump())
     return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.put("/processes/entry")
 def put_process_entry(body: ProcessUpdateBody) -> JSONResponse:
-    status_code, payload = update_entry(body.id, body.model_dump())
-    return JSONResponse(status_code=status_code, content=payload)
-
-
-@app.post("/processes/criticality")
-def post_process_criticality(body: ProcessCriticalitiesBody) -> JSONResponse:
-    status_code, payload = assign_criticalities([entry.model_dump() for entry in body.entries])
-    return JSONResponse(status_code=status_code, content=payload)
-
-
-@app.post("/processes/entries")
-def post_process_entries(body: ProcessEntriesBody) -> JSONResponse:
-    status_code, payload = add_entries([entry.model_dump() for entry in body.entries])
+    status_code, payload = update_process(body.previous_bp_id, body.model_dump())
     return JSONResponse(status_code=status_code, content=payload)
 
 

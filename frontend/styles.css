@@ -872,6 +872,10 @@ button.inline-link:hover {
   font-weight: 400;
 }
 
+.field select[multiple] {
+  min-height: 8.5rem;
+}
+
 .field-error {
   color: var(--danger);
   font-size: 0.78rem;

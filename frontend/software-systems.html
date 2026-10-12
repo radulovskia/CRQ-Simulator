@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Software Systems Catalog</title>
+    <link rel="stylesheet" href="styles.css?v=17" />
+  </head>
+  <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/">Home</a></li>
+        <li><a href="/organisational-units">Organisational Units</a></li>
+        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/business-processes">Business Processes</a></li>
+        <li><a href="/asset-inventory">Software Component Inventory</a></li>
+        <li><a href="/vulnerability-database">Vulnerability Database (old)</a></li>
+        <li><a href="/monte-carlo">Manual Simulation</a></li>
+      </ul>
+    </nav>
+
+    <main class="page page-wide">
+      <header class="inventory-header">
+        <div class="hero">
+          <h1>Software Systems Catalog</h1>
+          <p id="last-extraction" class="last-extraction" hidden></p>
+        </div>
+        <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Catalog</button>
+      </header>
+
+      <section id="upload-panel" class="panel upload-panel">
+        <p class="upload-explanation">
+          Upload a .csv or .xlsx file containing the following columns: System ID, Software System, Primary Function, Business Owner OU ID, Technical Custodian OU ID, Criticality, Data Classification, and Deployment. Ensure all columns are included and correctly formatted.
+        </p>
+        <div id="dropzone" class="dropzone">
+          <button id="upload-button" type="button">Upload file</button>
+          <p class="dropzone-hint">or drag and drop a file here</p>
+        </div>
+      </section>
+
+      <section id="status" class="status" hidden></section>
+
+      <section id="review" class="panel inventory-panel" hidden>
+        <h2>Entries that do not comply</h2>
+        <p class="upload-explanation">Nothing was saved. Correct the highlighted cells and upload the file again.</p>
+        <div class="table-wrap">
+          <table class="inventory-table">
+            <thead id="review-head"></thead>
+            <tbody id="review-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="stored" class="panel inventory-panel" hidden>
+        <div class="table-toolbar">
+          <button id="add-button" type="button" class="inventory-replace add-button">+</button>
+        </div>
+        <p id="catalog-count" class="inventory-count" hidden></p>
+        <div class="table-wrap">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="system_id">System ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="software_system">Software System<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="primary_function">Primary Function<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="business_owner_ou">Business Owner OU<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="technical_custodian_ou">Technical Custodian OU<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="data_classification">Data Classification<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="deployment">Deployment<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="edit-heading"><span class="visually-hidden">Edit</span></th>
+              </tr>
+              <tr class="filter-row">
+                <th><input type="search" data-field="system_id" aria-label="Filter System ID" placeholder="Filter" /></th>
+                <th><input type="search" data-field="software_system" aria-label="Filter Software System" placeholder="Filter" /></th>
+                <th><input type="search" data-field="primary_function" aria-label="Filter Primary Function" placeholder="Filter" /></th>
+                <th><input type="search" data-field="business_owner_ou" aria-label="Filter Business Owner OU" placeholder="Filter" /></th>
+                <th><input type="search" data-field="technical_custodian_ou" aria-label="Filter Technical Custodian OU" placeholder="Filter" /></th>
+                <th>
+                  <select data-field="criticality" aria-label="Filter Criticality">
+                    <option value="">All</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </th>
+                <th>
+                  <select data-field="data_classification" aria-label="Filter Data Classification">
+                    <option value="">All</option>
+                    <option value="Public">Public</option>
+                    <option value="Internal">Internal</option>
+                    <option value="Confidential">Confidential</option>
+                  </select>
+                </th>
+                <th><input type="search" data-field="deployment" aria-label="Filter Deployment" placeholder="Filter" /></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="stored-body"></tbody>
+          </table>
+        </div>
+        <div class="results-footer">
+          <p id="total-count" class="last-extraction" hidden></p>
+          <nav id="stored-pager" class="pager" aria-label="Software system pages" hidden></nav>
+        </div>
+      </section>
+    </main>
+
+    <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
+
+    <div id="entry-modal" class="modal" hidden>
+      <form id="entry-form" class="modal-card panel">
+        <h2 id="entry-title">Add software system</h2>
+        <label class="field">System ID<input id="field-system-id" type="text" autocomplete="off" /><span id="error-system-id" class="field-error" hidden></span></label>
+        <label class="field">Software System<input id="field-software-system" type="text" autocomplete="off" /><span id="error-software-system" class="field-error" hidden></span></label>
+        <label class="field">Primary Function<input id="field-primary-function" type="text" autocomplete="off" /><span id="error-primary-function" class="field-error" hidden></span></label>
+        <label class="field">Business Owner<select id="field-business-owner"></select><span id="error-business-owner" class="field-error" hidden></span></label>
+        <label class="field">Technical Custodian<select id="field-technical-custodian"></select><span id="error-technical-custodian" class="field-error" hidden></span></label>
+        <label class="field">Criticality
+          <select id="field-criticality">
+            <option value="">Select</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+          <span id="error-criticality" class="field-error" hidden></span>
+        </label>
+        <label class="field">Data Classification
+          <select id="field-data-classification">
+            <option value="">Select</option>
+            <option value="Public">Public</option>
+            <option value="Internal">Internal</option>
+            <option value="Confidential">Confidential</option>
+          </select>
+          <span id="error-data-classification" class="field-error" hidden></span>
+        </label>
+        <label class="field">Deployment<input id="field-deployment" type="text" autocomplete="off" /><span id="error-deployment" class="field-error" hidden></span></label>
+        <div class="modal-actions">
+          <button id="entry-cancel" type="button" class="inventory-replace">Cancel</button>
+          <button id="entry-save" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+
+    <script src="menu.js?v=2"></script>
+    <script src="pagination.js?v=1"></script>
+    <script src="catalog.js?v=1"></script>
+    <script src="systems.js?v=2"></script>
+  </body>
+</html>

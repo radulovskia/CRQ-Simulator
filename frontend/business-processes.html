@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Business Processes</title>
-    <link rel="stylesheet" href="styles.css?v=16" />
+    <link rel="stylesheet" href="styles.css?v=17" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -13,8 +13,11 @@
       </button>
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
-        <li><a href="/asset-inventory">Asset Inventory</a></li>
-        <li><a href="/vulnerability-database">Vulnerability Database</a></li>
+        <li><a href="/organisational-units">Organisational Units</a></li>
+        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/business-processes">Business Processes</a></li>
+        <li><a href="/asset-inventory">Software Component Inventory</a></li>
+        <li><a href="/vulnerability-database">Vulnerability Database (old)</a></li>
         <li><a href="/monte-carlo">Manual Simulation</a></li>
       </ul>
     </nav>
@@ -29,11 +32,8 @@
       </header>
 
       <section id="upload-panel" class="panel upload-panel">
-        <p id="missing-notice" class="upload-explanation missing-notice" hidden>
-          There are business processes in the Asset Inventory which have not been added to the Business Processes Catalog. Would you like to <button type="button" id="add-missing" class="inline-link">add them now</button>?
-        </p>
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: Business Process, Organisational Unit, and Criticality. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file containing the following columns: BP ID, OU ID, Business Process, Activity/Scope, Primary System IDs, Criticality, and Key Information. Ensure all columns are included and correctly formatted.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -55,9 +55,6 @@
       </section>
 
       <section id="stored" class="panel inventory-panel" hidden>
-        <p id="criticality-notice" class="upload-explanation missing-notice" hidden>
-          There are Business Processes defined without a Criticality label. Would you like to <button type="button" id="add-criticality" class="inline-link">add them now</button>?
-        </p>
         <div class="table-toolbar">
           <button id="add-button" type="button" class="inventory-replace add-button">+</button>
         </div>
@@ -66,23 +63,21 @@
           <table class="inventory-table">
             <thead>
               <tr>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="business_process">Business Process<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="organisational_unit">Organisational Unit<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="date_added">Date Added<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="bp_id">BP ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="organisational_unit">Organisational Unit<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="business_process">Business Process<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="activity_scope">Activity/Scope<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="software_systems">Software System<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="key_information">Key Information<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th class="edit-heading"><span class="visually-hidden">Edit</span></th>
               </tr>
               <tr class="filter-row">
-                <th><input type="search" data-field="business_process" aria-label="Filter Business Process" placeholder="Filter" /></th>
+                <th><input type="search" data-field="bp_id" aria-label="Filter BP ID" placeholder="Filter" /></th>
                 <th><input type="search" data-field="organisational_unit" aria-label="Filter Organisational Unit" placeholder="Filter" /></th>
+                <th><input type="search" data-field="business_process" aria-label="Filter Business Process" placeholder="Filter" /></th>
+                <th><input type="search" data-field="activity_scope" aria-label="Filter Activity/Scope" placeholder="Filter" /></th>
+                <th><input type="search" data-field="software_systems" aria-label="Filter Software System" placeholder="Filter" /></th>
                 <th>
                   <select data-field="criticality" aria-label="Filter Criticality">
                     <option value="">All</option>
@@ -91,7 +86,7 @@
                     <option value="High">High</option>
                   </select>
                 </th>
-                <th><input type="search" data-field="date_added" aria-label="Filter Date Added" placeholder="Filter" /></th>
+                <th><input type="search" data-field="key_information" aria-label="Filter Key Information" placeholder="Filter" /></th>
                 <th></th>
               </tr>
             </thead>
@@ -107,44 +102,16 @@
 
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
-    <div id="criticality-modal" class="modal" hidden>
-      <form id="criticality-form" class="modal-card panel">
-        <h2>Business Processes without a Criticality label</h2>
-        <div id="criticality-list"></div>
-        <div class="modal-actions">
-          <button id="criticality-cancel" type="button" class="inventory-replace">Cancel</button>
-          <button id="criticality-save" type="submit">Save</button>
-        </div>
-      </form>
-    </div>
-
-    <div id="missing-modal" class="modal" hidden>
-      <form id="missing-form" class="modal-card panel">
-        <h2>The following Business Processes have not been previously added</h2>
-        <div id="missing-list"></div>
-        <div class="modal-actions">
-          <button id="missing-cancel" type="button" class="inventory-replace">Cancel</button>
-          <button id="missing-save" type="submit">Save</button>
-        </div>
-      </form>
-    </div>
-
-    <div id="process-modal" class="modal" hidden>
-      <form id="process-form" class="modal-card panel">
-        <h2 id="process-form-title">Add business process</h2>
-        <label class="field">
-          Business Process
-          <input id="field-business-process" name="business_process" type="text" autocomplete="off" />
-          <span id="error-business-process" class="field-error" hidden></span>
-        </label>
-        <label class="field">
-          Organisational Unit
-          <input id="field-organisational-unit" name="organisational_unit" type="text" autocomplete="off" />
-          <span id="error-organisational-unit" class="field-error" hidden></span>
-        </label>
-        <label class="field">
-          Criticality
-          <select id="field-criticality" name="criticality">
+    <div id="entry-modal" class="modal" hidden>
+      <form id="entry-form" class="modal-card panel">
+        <h2 id="entry-title">Add business process</h2>
+        <label class="field">BP ID<input id="field-bp-id" type="text" autocomplete="off" /><span id="error-bp-id" class="field-error" hidden></span></label>
+        <label class="field">Organisational Unit<select id="field-ou"></select><span id="error-ou" class="field-error" hidden></span></label>
+        <label class="field">Business Process<input id="field-business-process" type="text" autocomplete="off" /><span id="error-business-process" class="field-error" hidden></span></label>
+        <label class="field">Activity/Scope<input id="field-activity-scope" type="text" autocomplete="off" /><span id="error-activity-scope" class="field-error" hidden></span></label>
+        <label class="field">Software Systems<select id="field-systems" multiple></select><span id="error-systems" class="field-error" hidden></span></label>
+        <label class="field">Criticality
+          <select id="field-criticality">
             <option value="">Select</option>
             <option value="Low">Low</option>
             <option value="Medium">Medium</option>
@@ -152,15 +119,17 @@
           </select>
           <span id="error-criticality" class="field-error" hidden></span>
         </label>
+        <label class="field">Key Information<input id="field-key-information" type="text" autocomplete="off" /><span id="error-key-information" class="field-error" hidden></span></label>
         <div class="modal-actions">
-          <button id="process-cancel" type="button" class="inventory-replace">Cancel</button>
-          <button id="process-save" type="submit">Save</button>
+          <button id="entry-cancel" type="button" class="inventory-replace">Cancel</button>
+          <button id="entry-save" type="submit">Save</button>
         </div>
       </form>
     </div>
 
     <script src="menu.js?v=2"></script>
     <script src="pagination.js?v=1"></script>
-    <script src="processes.js?v=3"></script>
+    <script src="catalog.js?v=1"></script>
+    <script src="processes.js?v=5"></script>
   </body>
 </html>
