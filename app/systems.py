@@ -144,7 +144,7 @@ def update_system(previous_system_id: str, fields: dict) -> tuple[int, dict]:
             if previous in _referenced_system_ids(connection):
                 return 422, {
                     "ok": False,
-                    "errors": {"System ID": "is still used by a business process"},
+                    "errors": {"System ID": "is still used by a business process or software component"},
                 }
             if _exists(connection, cleaned["system_id"]):
                 return 422, {"ok": False, "errors": {"System ID": "already exists"}}
@@ -172,6 +172,8 @@ def _referenced_system_ids(connection) -> set[str]:
     referenced = set()
     for row in connection.execute("SELECT primary_system_ids FROM business_processes").fetchall():
         referenced.update(split_ids(row["primary_system_ids"]))
+    for row in connection.execute("SELECT system_id FROM software_components").fetchall():
+        referenced.add(row["system_id"])
     return referenced
 
 

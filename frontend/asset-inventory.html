@@ -33,7 +33,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: Project, PURL, Business Process, Organisational Unit, Internet-facing?, Criticality, and Potential Consequence. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file containing the following columns: Component ID, System ID, and PURL. Ensure all columns are included and correctly formatted. The System ID must already exist in the Software Systems Catalog.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -61,48 +61,19 @@
             <thead>
               <tr>
                 <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="project">Project<span class="sort-indicator" aria-hidden="true"></span></button>
+                  <button type="button" class="sort-button" data-field="component_id">Component ID<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="software_system">Software System<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
                 <th aria-sort="none">
                   <button type="button" class="sort-button" data-field="purl">PURL<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="business_process">Business Process<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="organisational_unit">Organisational Unit<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="internet_facing">Internet-facing?<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
-                <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="potential_consequence">Potential Consequence<span class="sort-indicator" aria-hidden="true"></span></button>
-                </th>
               </tr>
               <tr class="filter-row">
-                <th><input type="search" data-field="project" aria-label="Filter Project" placeholder="Filter" /></th>
+                <th><input type="search" data-field="component_id" aria-label="Filter Component ID" placeholder="Filter" /></th>
+                <th><input type="search" data-field="software_system" aria-label="Filter Software System" placeholder="Filter" /></th>
                 <th><input type="search" data-field="purl" aria-label="Filter PURL" placeholder="Filter" /></th>
-                <th><input type="search" data-field="business_process" aria-label="Filter Business Process" placeholder="Filter" /></th>
-                <th><input type="search" data-field="organisational_unit" aria-label="Filter Organisational Unit" placeholder="Filter" /></th>
-                <th>
-                  <select data-field="internet_facing" aria-label="Filter Internet-facing?">
-                    <option value="">All</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </th>
-                <th>
-                  <select data-field="criticality" aria-label="Filter Criticality">
-                    <option value="">All</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </th>
-                <th><input type="search" data-field="potential_consequence" aria-label="Filter Potential Consequence" placeholder="Filter" /></th>
               </tr>
             </thead>
             <tbody id="stored-body"></tbody>
@@ -110,7 +81,7 @@
         </div>
         <div class="results-footer">
           <p id="total-count" class="last-extraction" hidden></p>
-          <nav id="stored-pager" class="pager" aria-label="Asset inventory pages" hidden></nav>
+          <nav id="stored-pager" class="pager" aria-label="Software component inventory pages" hidden></nav>
         </div>
       </section>
     </main>
@@ -119,6 +90,6 @@
 
     <script src="menu.js?v=2"></script>
     <script src="pagination.js?v=1"></script>
-    <script src="inventory.js?v=13"></script>
+    <script src="inventory.js?v=15"></script>
   </body>
 </html>

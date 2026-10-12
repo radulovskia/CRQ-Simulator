@@ -1,22 +1,6 @@
-const COLUMNS = [
-  "Project",
-  "PURL",
-  "Business Process",
-  "Organisational Unit",
-  "Internet-facing?",
-  "Criticality",
-  "Potential Consequence",
-];
+const COLUMNS = ["Component ID", "System ID", "PURL"];
 
-const STORED_FIELDS = [
-  "project",
-  "purl",
-  "business_process",
-  "organisational_unit",
-  "internet_facing",
-  "criticality",
-  "potential_consequence",
-];
+const STORED_FIELDS = ["component_id", "software_system", "purl"];
 
 const uploadPanel = document.getElementById("upload-panel");
 const dropzone = document.getElementById("dropzone");
@@ -34,8 +18,6 @@ const lastExtraction = document.getElementById("last-extraction");
 const totalCount = document.getElementById("total-count");
 const sortButtons = [...document.querySelectorAll(".sort-button")];
 const filterControls = [...document.querySelectorAll(".filter-row [data-field]")];
-
-const CRITICALITY_RANK = { Low: 0, Medium: 1, High: 2 };
 
 const storedPager = document.getElementById("stored-pager");
 
@@ -84,10 +66,7 @@ function showLastExtraction(extractedAt) {
   })}`;
 }
 
-function compareValues(field, left, right) {
-  if (field === "criticality") {
-    return (CRITICALITY_RANK[left] ?? 99) - (CRITICALITY_RANK[right] ?? 99);
-  }
+function compareValues(left, right) {
   return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
 }
 
@@ -111,7 +90,7 @@ function visibleItems() {
     return matched;
   }
   const direction = sortDirection === "desc" ? -1 : 1;
-  return matched.slice().sort((left, right) => direction * compareValues(sortField, left[sortField], right[sortField]));
+  return matched.slice().sort((left, right) => direction * compareValues(left[sortField], right[sortField]));
 }
 
 function updateSortIndicators() {
