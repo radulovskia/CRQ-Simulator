@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Asset Inventory</title>
-    <link rel="stylesheet" href="styles.css?v=13" />
+    <link rel="stylesheet" href="styles.css?v=15" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -14,6 +14,7 @@
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
         <li><a href="/vulnerability-database">Vulnerability Database</a></li>
+        <li><a href="/business-processes">Business Processes</a></li>
         <li><a href="/monte-carlo">Manual Simulation</a></li>
       </ul>
     </nav>
@@ -29,7 +30,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: Project, PURL, Business Process, Internet-facing?, Criticality, and Potential Consequence. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file containing the following columns: Project, PURL, Business Process, Organisational Unit, Internet-facing?, Criticality, and Potential Consequence. Ensure all columns are included and correctly formatted.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -66,6 +67,9 @@
                   <button type="button" class="sort-button" data-field="business_process">Business Process<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
                 <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="organisational_unit">Organisational Unit<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
                   <button type="button" class="sort-button" data-field="internet_facing">Internet-facing?<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
                 <th aria-sort="none">
@@ -79,6 +83,7 @@
                 <th><input type="search" data-field="project" aria-label="Filter Project" placeholder="Filter" /></th>
                 <th><input type="search" data-field="purl" aria-label="Filter PURL" placeholder="Filter" /></th>
                 <th><input type="search" data-field="business_process" aria-label="Filter Business Process" placeholder="Filter" /></th>
+                <th><input type="search" data-field="organisational_unit" aria-label="Filter Organisational Unit" placeholder="Filter" /></th>
                 <th>
                   <select data-field="internet_facing" aria-label="Filter Internet-facing?">
                     <option value="">All</option>
@@ -109,8 +114,19 @@
 
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
+    <div id="missing-modal" class="modal" hidden>
+      <form id="missing-form" class="modal-card panel">
+        <h2>The following Business Processes have not been previously added</h2>
+        <div id="missing-list"></div>
+        <div class="modal-actions">
+          <button id="missing-cancel" type="button" class="inventory-replace">Cancel</button>
+          <button id="missing-save" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+
     <script src="menu.js?v=2"></script>
     <script src="pagination.js?v=1"></script>
-    <script src="inventory.js?v=10"></script>
+    <script src="inventory.js?v=12"></script>
   </body>
 </html>

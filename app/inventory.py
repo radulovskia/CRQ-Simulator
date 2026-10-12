@@ -12,6 +12,7 @@ COLUMNS = (
     "Project",
     "PURL",
     "Business Process",
+    "Organisational Unit",
     "Internet-facing?",
     "Criticality",
     "Potential Consequence",
@@ -21,6 +22,7 @@ DB_FIELDS = {
     "Project": "project",
     "PURL": "purl",
     "Business Process": "business_process",
+    "Organisational Unit": "organisational_unit",
     "Internet-facing?": "internet_facing",
     "Criticality": "criticality",
     "Potential Consequence": "potential_consequence",
@@ -36,6 +38,7 @@ CREATE TABLE IF NOT EXISTS assets (
     project TEXT NOT NULL,
     purl TEXT NOT NULL,
     business_process TEXT NOT NULL,
+    organisational_unit TEXT NOT NULL,
     internet_facing TEXT NOT NULL,
     criticality TEXT NOT NULL,
     potential_consequence TEXT NOT NULL
@@ -43,6 +46,7 @@ CREATE TABLE IF NOT EXISTS assets (
 """
 
 ADD_PROJECT = "ALTER TABLE assets ADD COLUMN IF NOT EXISTS project TEXT"
+ADD_ORGANISATIONAL_UNIT = "ALTER TABLE assets ADD COLUMN IF NOT EXISTS organisational_unit TEXT"
 
 CREATE_META = """
 CREATE TABLE IF NOT EXISTS inventory_meta (
@@ -71,6 +75,7 @@ def init_db() -> None:
                 connection.execute(CREATE_TABLE)
                 connection.execute(ADD_PROJECT)
                 _rename_business_purpose(connection)
+                _add_organisational_unit(connection)
                 connection.execute(CREATE_META)
                 connection.commit()
             return
@@ -98,11 +103,17 @@ def _rename_business_purpose(connection) -> None:
     connection.execute("ALTER TABLE assets RENAME COLUMN business_purpose TO business_process")
 
 
+def _add_organisational_unit(connection) -> None:
+    connection.execute(ADD_ORGANISATIONAL_UNIT)
+    connection.execute("UPDATE assets SET organisational_unit = '' WHERE organisational_unit IS NULL")
+    connection.execute("ALTER TABLE assets ALTER COLUMN organisational_unit SET NOT NULL")
+
+
 def list_inventory() -> dict:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT project, purl, business_process, internet_facing, criticality, potential_consequence
+            SELECT project, purl, business_process, organisational_unit, internet_facing, criticality, potential_consequence
             FROM assets
             ORDER BY id
             """
@@ -122,11 +133,12 @@ def replace_inventory(rows: list[dict]) -> None:
                 cursor.executemany(
                     """
                     INSERT INTO assets (
-                        project, purl, business_process, internet_facing, criticality, potential_consequence
+                        project, purl, business_process, organisational_unit, internet_facing,
+                        criticality, potential_consequence
                     )
                     VALUES (
-                        %(project)s, %(purl)s, %(business_process)s, %(internet_facing)s,
-                        %(criticality)s, %(potential_consequence)s
+                        %(project)s, %(purl)s, %(business_process)s, %(organisational_unit)s,
+                        %(internet_facing)s, %(criticality)s, %(potential_consequence)s
                     )
                     """,
                     rows,
@@ -244,6 +256,9 @@ def _validate_row(values: dict) -> dict:
 
     if not values["Business Process"]:
         errors["Business Process"] = "must not be empty"
+
+    if not values["Organisational Unit"]:
+        errors["Organisational Unit"] = "must not be empty"
 
     if values["Internet-facing?"] not in {"Yes", "No"}:
         errors["Internet-facing?"] = 'must be "Yes" or "No"'

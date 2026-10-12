@@ -6,6 +6,15 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
 from inventory import init_db, list_inventory, process_upload
+from processes import (
+    add_entries,
+    add_entry,
+    init_processes,
+    list_processes,
+    missing_names,
+    process_catalog_upload,
+    update_entry,
+)
 from vulnerabilities import clear_findings, init_vulnerability_db, list_findings, scan_vulnerabilities
 from monte_carlo import run_monte_carlo
 
@@ -13,6 +22,7 @@ from monte_carlo import run_monte_carlo
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    init_processes()
     init_vulnerability_db()
     yield
 
@@ -226,7 +236,59 @@ async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
             body["vulnerability_count"] = scan_body.get("count", 0)
         else:
             body["scan_error"] = scan_body.get("error") or "The vulnerability scan failed."
+        names = [item["business_process"] for item in list_inventory()["items"]]
+        body["missing_business_processes"] = missing_names(names)
     return JSONResponse(status_code=status_code, content=body)
+
+
+class ProcessEntryBody(BaseModel):
+    business_process: str = ""
+    organisational_unit: str = ""
+    criticality: str = ""
+
+
+class ProcessUpdateBody(ProcessEntryBody):
+    id: int
+
+
+class ProcessEntriesBody(BaseModel):
+    entries: list[ProcessEntryBody]
+
+
+@app.get("/processes")
+def get_processes() -> dict:
+    return list_processes()
+
+
+@app.get("/processes/missing")
+def get_missing_processes() -> dict:
+    names = [item["business_process"] for item in list_inventory()["items"]]
+    return {"names": missing_names(names)}
+
+
+@app.post("/processes")
+async def post_processes(file: UploadFile = File(...)) -> JSONResponse:
+    content = await file.read()
+    status_code, body = process_catalog_upload(file.filename or "", content)
+    return JSONResponse(status_code=status_code, content=body)
+
+
+@app.post("/processes/entry")
+def post_process_entry(body: ProcessEntryBody) -> JSONResponse:
+    status_code, payload = add_entry(body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.put("/processes/entry")
+def put_process_entry(body: ProcessUpdateBody) -> JSONResponse:
+    status_code, payload = update_entry(body.id, body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.post("/processes/entries")
+def post_process_entries(body: ProcessEntriesBody) -> JSONResponse:
+    status_code, payload = add_entries([entry.model_dump() for entry in body.entries])
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.post("/mc", response_model=MCResponse)
