@@ -695,14 +695,16 @@ button:disabled {
   font-weight: 700;
 }
 
-.scan-button {
-  width: auto;
-  min-width: 16rem;
-  margin-bottom: 0.25rem;
+.results-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
 }
 
-.scan-button:disabled {
-  cursor: wait;
+.results-footer .last-extraction {
+  margin: 0;
 }
 
 .pager {
@@ -711,7 +713,8 @@ button:disabled {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.9rem;
+  margin-top: 0;
+  margin-left: auto;
 }
 
 .pager-pages {

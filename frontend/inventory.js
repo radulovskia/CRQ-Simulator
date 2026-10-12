@@ -29,6 +29,7 @@ const storedSection = document.getElementById("stored");
 const storedBody = document.getElementById("stored-body");
 const inventoryCount = document.getElementById("inventory-count");
 const lastExtraction = document.getElementById("last-extraction");
+const totalCount = document.getElementById("total-count");
 const sortButtons = [...document.querySelectorAll(".sort-button")];
 const filterControls = [...document.querySelectorAll(".filter-row [data-field]")];
 
@@ -52,6 +53,16 @@ function clearStatus() {
   statusBox.hidden = true;
   statusBox.textContent = "";
   statusBox.className = "status";
+}
+
+function showTotalCount(count) {
+  if (!count) {
+    totalCount.hidden = true;
+    totalCount.textContent = "";
+    return;
+  }
+  totalCount.hidden = false;
+  totalCount.textContent = `Total Count: ${count}`;
 }
 
 function showLastExtraction(extractedAt) {
@@ -155,6 +166,7 @@ function showStoredLayout() {
   uploadPanel.hidden = hasInventory;
   replaceButton.hidden = !hasInventory;
   storedSection.hidden = !hasInventory;
+  showTotalCount(hasInventory ? storedItems.length : 0);
   if (hasInventory) {
     renderStoredRows();
   }
