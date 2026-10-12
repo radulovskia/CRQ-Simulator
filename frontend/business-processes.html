@@ -55,6 +55,9 @@
       </section>
 
       <section id="stored" class="panel inventory-panel" hidden>
+        <p id="criticality-notice" class="upload-explanation missing-notice" hidden>
+          There are Business Processes defined without a Criticality label. Would you like to <button type="button" id="add-criticality" class="inline-link">add them now</button>?
+        </p>
         <div class="table-toolbar">
           <button id="add-button" type="button" class="inventory-replace add-button">+</button>
         </div>
@@ -104,6 +107,17 @@
 
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
+    <div id="criticality-modal" class="modal" hidden>
+      <form id="criticality-form" class="modal-card panel">
+        <h2>Business Processes without a Criticality label</h2>
+        <div id="criticality-list"></div>
+        <div class="modal-actions">
+          <button id="criticality-cancel" type="button" class="inventory-replace">Cancel</button>
+          <button id="criticality-save" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+
     <div id="missing-modal" class="modal" hidden>
       <form id="missing-form" class="modal-card panel">
         <h2>The following Business Processes have not been previously added</h2>
@@ -147,6 +161,6 @@
 
     <script src="menu.js?v=2"></script>
     <script src="pagination.js?v=1"></script>
-    <script src="processes.js?v=2"></script>
+    <script src="processes.js?v=3"></script>
   </body>
 </html>

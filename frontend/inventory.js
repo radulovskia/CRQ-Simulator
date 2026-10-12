@@ -259,10 +259,6 @@ async function uploadFile(file) {
       } else {
         setStatus(`${saved} ${data.scan_error || "The vulnerability scan failed."}`, "error");
       }
-      const missing = data.missing_business_processes ?? [];
-      if (missing.length) {
-        openMissingProcesses(missing);
-      }
       return;
     }
 
@@ -286,128 +282,6 @@ async function uploadFile(file) {
     fileInput.value = "";
   }
 }
-
-const missingModal = document.getElementById("missing-modal");
-const missingForm = document.getElementById("missing-form");
-const missingList = document.getElementById("missing-list");
-const missingCancel = document.getElementById("missing-cancel");
-
-function openMissingProcesses(names) {
-  missingList.replaceChildren(
-    ...names.map((name) => {
-      const block = document.createElement("div");
-      block.className = "missing-process";
-      block.dataset.name = name;
-
-      const title = document.createElement("p");
-      title.className = "missing-process-name";
-      title.textContent = name;
-      block.appendChild(title);
-
-      const unitLabel = document.createElement("label");
-      unitLabel.className = "field";
-      unitLabel.append("Organisational Unit");
-      const unit = document.createElement("input");
-      unit.type = "text";
-      unit.autocomplete = "off";
-      unitLabel.appendChild(unit);
-      const unitError = document.createElement("span");
-      unitError.className = "field-error";
-      unitError.hidden = true;
-      unitLabel.appendChild(unitError);
-      block.appendChild(unitLabel);
-
-      const criticalityLabel = document.createElement("label");
-      criticalityLabel.className = "field";
-      criticalityLabel.append("Criticality");
-      const criticality = document.createElement("select");
-      ["", "Low", "Medium", "High"].forEach((value) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = value || "Select";
-        criticality.appendChild(option);
-      });
-      criticalityLabel.appendChild(criticality);
-      const criticalityError = document.createElement("span");
-      criticalityError.className = "field-error";
-      criticalityError.hidden = true;
-      criticalityLabel.appendChild(criticalityError);
-      block.appendChild(criticalityLabel);
-      return block;
-    }),
-  );
-  missingModal.hidden = false;
-  missingList.querySelector("input")?.focus();
-}
-
-function closeMissingProcesses() {
-  missingModal.hidden = true;
-  missingList.replaceChildren();
-}
-
-async function saveMissingProcesses(event) {
-  event.preventDefault();
-  const blocks = [...missingList.querySelectorAll(".missing-process")];
-  let valid = true;
-  const entries = blocks.map((block) => {
-    const unit = block.querySelector("input");
-    const criticality = block.querySelector("select");
-    const errors = block.querySelectorAll(".field-error");
-    const unitError = errors[0];
-    const criticalityError = errors[1];
-    unitError.hidden = true;
-    criticalityError.hidden = true;
-    const organisationalUnit = unit.value.trim();
-    if (!organisationalUnit) {
-      unitError.hidden = false;
-      unitError.textContent = "must not be empty";
-      valid = false;
-    }
-    if (!["Low", "Medium", "High"].includes(criticality.value)) {
-      criticalityError.hidden = false;
-      criticalityError.textContent = 'must be "Low", "Medium", or "High"';
-      valid = false;
-    }
-    return {
-      business_process: block.dataset.name,
-      organisational_unit: organisationalUnit,
-      criticality: criticality.value,
-    };
-  });
-  if (!valid) {
-    return;
-  }
-
-  const saveButton = document.getElementById("missing-save");
-  saveButton.disabled = true;
-  try {
-    const response = await fetch("/processes/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
-    });
-    const data = await response.json();
-    if (!data.ok) {
-      setStatus(data.error || "The business processes could not be saved.", "error");
-      return;
-    }
-    closeMissingProcesses();
-    const count = data.count ?? entries.length;
-    setStatus(`Added ${count} ${count === 1 ? "business process" : "business processes"}.`, "success");
-  } catch (error) {
-    setStatus(error.message || "The business processes could not be saved.", "error");
-  } finally {
-    saveButton.disabled = false;
-  }
-}
-
-missingCancel.addEventListener("click", closeMissingProcesses);
-missingForm.addEventListener("submit", saveMissingProcesses);
-missingModal.addEventListener("click", (event) => {
-  if (event.target === missingModal) {
-    closeMissingProcesses();
-  }
-});
 
 sortButtons.forEach((button) => {
   button.addEventListener("click", () => {

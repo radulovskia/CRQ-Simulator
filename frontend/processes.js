@@ -38,6 +38,12 @@ const processFormTitle = document.getElementById("process-form-title");
 const processCancel = document.getElementById("process-cancel");
 const missingNotice = document.getElementById("missing-notice");
 const addMissingButton = document.getElementById("add-missing");
+const criticalityNotice = document.getElementById("criticality-notice");
+const addCriticalityButton = document.getElementById("add-criticality");
+const criticalityModal = document.getElementById("criticality-modal");
+const criticalityForm = document.getElementById("criticality-form");
+const criticalityList = document.getElementById("criticality-list");
+const criticalityCancel = document.getElementById("criticality-cancel");
 const missingModal = document.getElementById("missing-modal");
 const missingForm = document.getElementById("missing-form");
 const missingList = document.getElementById("missing-list");
@@ -225,6 +231,7 @@ function showStoredLayout() {
   if (hasCatalog) {
     renderStoredRows();
   }
+  showCriticalityNotice();
 }
 
 function showReview(rows) {
@@ -352,6 +359,99 @@ async function loadMissingNotice() {
   const data = await response.json();
   missingNames = data.names ?? [];
   missingNotice.hidden = missingNames.length === 0;
+}
+
+function blankCriticalityItems() {
+  return storedItems.filter((item) => !item.criticality);
+}
+
+function showCriticalityNotice() {
+  criticalityNotice.hidden = blankCriticalityItems().length === 0;
+}
+
+function openCriticalityForm() {
+  criticalityList.replaceChildren(
+    ...blankCriticalityItems().map((item) => {
+      const block = document.createElement("div");
+      block.className = "missing-process";
+      block.dataset.id = String(item.id);
+
+      const title = document.createElement("p");
+      title.className = "missing-process-name";
+      title.textContent = item.business_process;
+      block.appendChild(title);
+
+      const label = document.createElement("label");
+      label.className = "field";
+      label.append("Criticality");
+      const select = document.createElement("select");
+      ["", "Low", "Medium", "High"].forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value || "Select";
+        select.appendChild(option);
+      });
+      label.appendChild(select);
+      const error = document.createElement("span");
+      error.className = "field-error";
+      error.hidden = true;
+      label.appendChild(error);
+      block.appendChild(label);
+      return block;
+    }),
+  );
+  criticalityModal.hidden = false;
+  criticalityList.querySelector("select")?.focus();
+}
+
+function closeCriticalityForm() {
+  criticalityModal.hidden = true;
+  criticalityList.replaceChildren();
+}
+
+async function saveCriticalities(event) {
+  event.preventDefault();
+  const blocks = [...criticalityList.querySelectorAll(".missing-process")];
+  let valid = true;
+  const entries = blocks.map((block) => {
+    const select = block.querySelector("select");
+    const error = block.querySelector(".field-error");
+    error.hidden = true;
+    if (!["Low", "Medium", "High"].includes(select.value)) {
+      error.hidden = false;
+      error.textContent = 'must be "Low", "Medium", or "High"';
+      valid = false;
+    }
+    return { id: Number(block.dataset.id), criticality: select.value };
+  });
+  if (!valid) {
+    return;
+  }
+
+  const saveButton = document.getElementById("criticality-save");
+  saveButton.disabled = true;
+  try {
+    const response = await fetch("/processes/criticality", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entries }),
+    });
+    const data = await response.json();
+    if (!data.ok) {
+      setStatus(data.error || "The criticality labels could not be saved.", "error");
+      return;
+    }
+    closeCriticalityForm();
+    storedItems = data.items ?? [];
+    showLastExtraction(data.extracted_at);
+    showStoredLayout();
+    const count = entries.length;
+    setStatus(`Updated ${count} ${count === 1 ? "business process" : "business processes"}.`, "success");
+  } catch (error) {
+    setStatus(error.message || "The criticality labels could not be saved.", "error");
+  } finally {
+    saveButton.disabled = false;
+  }
 }
 
 function openMissingProcesses(names) {
@@ -578,6 +678,14 @@ uploadButton.addEventListener("click", () => fileInput.click());
 replaceButton.addEventListener("click", () => fileInput.click());
 addButton.addEventListener("click", () => openForm(null));
 addMissingButton.addEventListener("click", () => openMissingProcesses(missingNames));
+addCriticalityButton.addEventListener("click", openCriticalityForm);
+criticalityCancel.addEventListener("click", closeCriticalityForm);
+criticalityForm.addEventListener("submit", saveCriticalities);
+criticalityModal.addEventListener("click", (event) => {
+  if (event.target === criticalityModal) {
+    closeCriticalityForm();
+  }
+});
 processCancel.addEventListener("click", closeForm);
 processForm.addEventListener("submit", saveForm);
 processModal.addEventListener("click", (event) => {
@@ -601,6 +709,9 @@ document.addEventListener("keydown", (event) => {
   }
   if (!missingModal.hidden) {
     closeMissingProcesses();
+  }
+  if (!criticalityModal.hidden) {
+    closeCriticalityForm();
   }
 });
 

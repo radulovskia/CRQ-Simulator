@@ -9,6 +9,8 @@ from inventory import init_db, list_inventory, process_upload
 from processes import (
     add_entries,
     add_entry,
+    add_from_inventory,
+    assign_criticalities,
     init_processes,
     list_processes,
     missing_names,
@@ -229,6 +231,7 @@ async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
     content = await file.read()
     status_code, body = process_upload(file.filename or "", content)
     if status_code == 200:
+        add_from_inventory(list_inventory()["items"])
         clear_findings()
         _scan_status, scan_body = scan_vulnerabilities()
         body["scan_ok"] = bool(scan_body.get("ok"))
@@ -236,8 +239,6 @@ async def post_inventory(file: UploadFile = File(...)) -> JSONResponse:
             body["vulnerability_count"] = scan_body.get("count", 0)
         else:
             body["scan_error"] = scan_body.get("error") or "The vulnerability scan failed."
-        names = [item["business_process"] for item in list_inventory()["items"]]
-        body["missing_business_processes"] = missing_names(names)
     return JSONResponse(status_code=status_code, content=body)
 
 
@@ -253,6 +254,15 @@ class ProcessUpdateBody(ProcessEntryBody):
 
 class ProcessEntriesBody(BaseModel):
     entries: list[ProcessEntryBody]
+
+
+class ProcessCriticalityBody(BaseModel):
+    id: int
+    criticality: str = ""
+
+
+class ProcessCriticalitiesBody(BaseModel):
+    entries: list[ProcessCriticalityBody]
 
 
 @app.get("/processes")
@@ -282,6 +292,12 @@ def post_process_entry(body: ProcessEntryBody) -> JSONResponse:
 @app.put("/processes/entry")
 def put_process_entry(body: ProcessUpdateBody) -> JSONResponse:
     status_code, payload = update_entry(body.id, body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.post("/processes/criticality")
+def post_process_criticality(body: ProcessCriticalitiesBody) -> JSONResponse:
+    status_code, payload = assign_criticalities([entry.model_dump() for entry in body.entries])
     return JSONResponse(status_code=status_code, content=payload)
 
 

@@ -149,6 +149,36 @@ def add_entry(fields: dict) -> tuple[int, dict]:
     return 200, {"ok": True, **list_processes()}
 
 
+def add_from_inventory(items: list[dict]) -> None:
+    seen = set()
+    candidates = []
+    for item in items:
+        name = str(item.get("business_process") or "").strip()
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(
+            {
+                "business_process": name,
+                "organisational_unit": str(item.get("organisational_unit") or "").strip(),
+                "criticality": "",
+            }
+        )
+    if not candidates:
+        return
+    with connect() as connection:
+        existing = {
+            row["business_process"].casefold()
+            for row in connection.execute("SELECT business_process FROM business_processes").fetchall()
+        }
+    fresh = [row for row in candidates if row["business_process"].casefold() not in existing]
+    if fresh:
+        _insert_entries(fresh)
+
+
 def add_entries(entries: list[dict]) -> tuple[int, dict]:
     if not entries:
         return 422, {"ok": False, "error": "No business processes were provided."}
@@ -164,6 +194,50 @@ def add_entries(entries: list[dict]) -> tuple[int, dict]:
         return 422, {"ok": False, "errors": problems}
     _insert_entries(cleaned)
     return 200, {"ok": True, "count": len(cleaned), **list_processes()}
+
+
+def assign_criticalities(entries: list[dict]) -> tuple[int, dict]:
+    if not entries:
+        return 422, {"ok": False, "error": "No business processes were provided."}
+    problems = []
+    cleaned = []
+    for index, entry in enumerate(entries):
+        criticality = str(entry.get("criticality") or "").strip()
+        entry_id = entry.get("id")
+        errors = {}
+        if not isinstance(entry_id, int):
+            errors["id"] = "was not found"
+        if criticality not in CRITICALITY:
+            errors["Criticality"] = 'must be "Low", "Medium", or "High"'
+        if errors:
+            problems.append({"index": index, "errors": errors})
+        else:
+            cleaned.append({"id": entry_id, "criticality": criticality})
+    if problems:
+        return 422, {"ok": False, "errors": problems}
+
+    with connect() as connection:
+        with connection.transaction():
+            found = {
+                row["id"]
+                for row in connection.execute(
+                    "SELECT id FROM business_processes WHERE id = ANY(%s)",
+                    ([row["id"] for row in cleaned],),
+                ).fetchall()
+            }
+            if any(row["id"] not in found for row in cleaned):
+                return 404, {"ok": False, "error": "That business process was not found."}
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    UPDATE business_processes
+                    SET criticality = %(criticality)s
+                    WHERE id = %(id)s
+                    """,
+                    cleaned,
+                )
+            connection.execute(TOUCH_META)
+    return 200, {"ok": True, **list_processes()}
 
 
 def update_entry(entry_id: int, fields: dict) -> tuple[int, dict]:
