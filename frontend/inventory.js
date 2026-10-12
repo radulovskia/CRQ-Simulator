@@ -1,16 +1,16 @@
 const COLUMNS = [
   "Project",
   "PURL",
-  "Business Purpose",
+  "Business Process",
   "Internet-facing?",
   "Criticality",
-  "Potential consequence",
+  "Potential Consequence",
 ];
 
 const STORED_FIELDS = [
   "project",
   "purl",
-  "business_purpose",
+  "business_process",
   "internet_facing",
   "criticality",
   "potential_consequence",

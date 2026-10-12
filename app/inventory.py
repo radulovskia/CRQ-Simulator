@@ -11,20 +11,22 @@ from psycopg.rows import dict_row
 COLUMNS = (
     "Project",
     "PURL",
-    "Business Purpose",
+    "Business Process",
     "Internet-facing?",
     "Criticality",
-    "Potential consequence",
+    "Potential Consequence",
 )
 
 DB_FIELDS = {
     "Project": "project",
     "PURL": "purl",
-    "Business Purpose": "business_purpose",
+    "Business Process": "business_process",
     "Internet-facing?": "internet_facing",
     "Criticality": "criticality",
-    "Potential consequence": "potential_consequence",
+    "Potential Consequence": "potential_consequence",
 }
+
+CANONICAL_COLUMNS = {column.casefold(): column for column in COLUMNS}
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -33,7 +35,7 @@ CREATE TABLE IF NOT EXISTS assets (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     project TEXT NOT NULL,
     purl TEXT NOT NULL,
-    business_purpose TEXT NOT NULL,
+    business_process TEXT NOT NULL,
     internet_facing TEXT NOT NULL,
     criticality TEXT NOT NULL,
     potential_consequence TEXT NOT NULL
@@ -68,6 +70,7 @@ def init_db() -> None:
             with connect() as connection:
                 connection.execute(CREATE_TABLE)
                 connection.execute(ADD_PROJECT)
+                _rename_business_purpose(connection)
                 connection.execute(CREATE_META)
                 connection.commit()
             return
@@ -77,11 +80,29 @@ def init_db() -> None:
     raise last_error
 
 
+def _rename_business_purpose(connection) -> None:
+    columns = {
+        row["column_name"]
+        for row in connection.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'assets'
+            """
+        ).fetchall()
+    }
+    if "business_purpose" not in columns:
+        return
+    if "business_process" in columns:
+        connection.execute("ALTER TABLE assets DROP COLUMN business_process")
+    connection.execute("ALTER TABLE assets RENAME COLUMN business_purpose TO business_process")
+
+
 def list_inventory() -> dict:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT project, purl, business_purpose, internet_facing, criticality, potential_consequence
+            SELECT project, purl, business_process, internet_facing, criticality, potential_consequence
             FROM assets
             ORDER BY id
             """
@@ -101,10 +122,10 @@ def replace_inventory(rows: list[dict]) -> None:
                 cursor.executemany(
                     """
                     INSERT INTO assets (
-                        project, purl, business_purpose, internet_facing, criticality, potential_consequence
+                        project, purl, business_process, internet_facing, criticality, potential_consequence
                     )
                     VALUES (
-                        %(project)s, %(purl)s, %(business_purpose)s, %(internet_facing)s,
+                        %(project)s, %(purl)s, %(business_process)s, %(internet_facing)s,
                         %(criticality)s, %(potential_consequence)s
                     )
                     """,
@@ -168,7 +189,11 @@ def _read_rows(filename: str, content: bytes) -> tuple[list[tuple[int, dict]] | 
     if header_error:
         return None, header_error
 
-    positions = {name: index for index, name in enumerate(header)}
+    positions = {}
+    for index, name in enumerate(header):
+        canonical = CANONICAL_COLUMNS.get(name.casefold())
+        if canonical:
+            positions[canonical] = index
     rows = []
     for offset, cells in enumerate(table[1:], start=2):
         values = {column: _cell(cells, positions[column]) for column in COLUMNS}
@@ -183,11 +208,14 @@ def _read_rows(filename: str, content: bytes) -> tuple[list[tuple[int, dict]] | 
 def _header_error(header: list[str]) -> str | None:
     if any(not name for name in header):
         return "The header row has an empty column name."
-    if len(header) != len(set(header)):
+
+    folded = [name.casefold() for name in header]
+    if len(folded) != len(set(folded)):
         return "The header row contains duplicate column names."
 
-    missing = [column for column in COLUMNS if column not in header]
-    unexpected = [column for column in header if column not in COLUMNS]
+    present = set(folded)
+    missing = [column for column in COLUMNS if column.casefold() not in present]
+    unexpected = [column for column in header if column.casefold() not in CANONICAL_COLUMNS]
     if not missing and not unexpected:
         return None
 
@@ -214,8 +242,8 @@ def _validate_row(values: dict) -> dict:
         except ValueError:
             errors["PURL"] = "not a valid PURL"
 
-    if not values["Business Purpose"]:
-        errors["Business Purpose"] = "must not be empty"
+    if not values["Business Process"]:
+        errors["Business Process"] = "must not be empty"
 
     if values["Internet-facing?"] not in {"Yes", "No"}:
         errors["Internet-facing?"] = 'must be "Yes" or "No"'
@@ -223,8 +251,8 @@ def _validate_row(values: dict) -> dict:
     if values["Criticality"] not in {"Low", "Medium", "High"}:
         errors["Criticality"] = 'must be "Low", "Medium", or "High"'
 
-    if not values["Potential consequence"]:
-        errors["Potential consequence"] = "must not be empty"
+    if not values["Potential Consequence"]:
+        errors["Potential Consequence"] = "must not be empty"
 
     return errors
 
