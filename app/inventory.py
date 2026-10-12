@@ -9,6 +9,7 @@ from packageurl import PackageURL
 from psycopg.rows import dict_row
 
 COLUMNS = (
+    "Project",
     "PURL",
     "Business Purpose",
     "Internet-facing?",
@@ -17,6 +18,7 @@ COLUMNS = (
 )
 
 DB_FIELDS = {
+    "Project": "project",
     "PURL": "purl",
     "Business Purpose": "business_purpose",
     "Internet-facing?": "internet_facing",
@@ -29,6 +31,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS assets (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    project TEXT NOT NULL,
     purl TEXT NOT NULL,
     business_purpose TEXT NOT NULL,
     internet_facing TEXT NOT NULL,
@@ -36,6 +39,8 @@ CREATE TABLE IF NOT EXISTS assets (
     potential_consequence TEXT NOT NULL
 )
 """
+
+ADD_PROJECT = "ALTER TABLE assets ADD COLUMN IF NOT EXISTS project TEXT"
 
 CREATE_META = """
 CREATE TABLE IF NOT EXISTS inventory_meta (
@@ -62,6 +67,7 @@ def init_db() -> None:
         try:
             with connect() as connection:
                 connection.execute(CREATE_TABLE)
+                connection.execute(ADD_PROJECT)
                 connection.execute(CREATE_META)
                 connection.commit()
             return
@@ -75,7 +81,7 @@ def list_inventory() -> dict:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT purl, business_purpose, internet_facing, criticality, potential_consequence
+            SELECT project, purl, business_purpose, internet_facing, criticality, potential_consequence
             FROM assets
             ORDER BY id
             """
@@ -95,10 +101,10 @@ def replace_inventory(rows: list[dict]) -> None:
                 cursor.executemany(
                     """
                     INSERT INTO assets (
-                        purl, business_purpose, internet_facing, criticality, potential_consequence
+                        project, purl, business_purpose, internet_facing, criticality, potential_consequence
                     )
                     VALUES (
-                        %(purl)s, %(business_purpose)s, %(internet_facing)s,
+                        %(project)s, %(purl)s, %(business_purpose)s, %(internet_facing)s,
                         %(criticality)s, %(potential_consequence)s
                     )
                     """,
@@ -195,6 +201,9 @@ def _header_error(header: list[str]) -> str | None:
 
 def _validate_row(values: dict) -> dict:
     errors = {}
+
+    if not values["Project"]:
+        errors["Project"] = "must not be empty"
 
     purl = values["PURL"]
     if not purl:

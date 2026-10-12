@@ -1,4 +1,5 @@
 const COLUMNS = [
+  "Project",
   "PURL",
   "Business Purpose",
   "Internet-facing?",
@@ -7,6 +8,7 @@ const COLUMNS = [
 ];
 
 const STORED_FIELDS = [
+  "project",
   "purl",
   "business_purpose",
   "internet_facing",
@@ -133,7 +135,7 @@ function renderStoredRows() {
       const row = document.createElement("tr");
       STORED_FIELDS.forEach((field) => {
         const cell = document.createElement("td");
-        cell.textContent = item[field];
+        cell.textContent = item[field] ?? "";
         row.appendChild(cell);
       });
       return row;

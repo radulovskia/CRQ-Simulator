@@ -29,7 +29,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: PURL, Business Purpose, Internet-facing?, Criticality, and Potential consequence. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file containing the following columns: Project, PURL, Business Purpose, Internet-facing?, Criticality, and Potential consequence. Ensure all columns are included and correctly formatted.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -57,6 +57,9 @@
             <thead>
               <tr>
                 <th aria-sort="none">
+                  <button type="button" class="sort-button" data-field="project">Project<span class="sort-indicator" aria-hidden="true"></span></button>
+                </th>
+                <th aria-sort="none">
                   <button type="button" class="sort-button" data-field="purl">PURL<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
                 <th aria-sort="none">
@@ -73,6 +76,7 @@
                 </th>
               </tr>
               <tr class="filter-row">
+                <th><input type="search" data-field="project" aria-label="Filter Project" placeholder="Filter" /></th>
                 <th><input type="search" data-field="purl" aria-label="Filter PURL" placeholder="Filter" /></th>
                 <th><input type="search" data-field="business_purpose" aria-label="Filter Business Purpose" placeholder="Filter" /></th>
                 <th>
@@ -104,6 +108,6 @@
 
     <script src="menu.js?v=2"></script>
     <script src="pagination.js?v=1"></script>
-    <script src="inventory.js?v=5"></script>
+    <script src="inventory.js?v=6"></script>
   </body>
 </html>
