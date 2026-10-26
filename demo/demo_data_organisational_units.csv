@@ -1,7 +1,7 @@
-OU ID,Organisational Unit,Primary Responsibilities,Oversight
-OU-01,Risk & Compliance,"AML monitoring, sanctions, credit risk oversight, regulatory compliance and reporting review.",Chief Risk & Compliance Officer
-OU-02,Front Office,"Customer acquisition and servicing, account opening, digital-channel support, loan origination.",Head of Front Office
-OU-03,Back Office,"Payments processing, transaction operations, account maintenance, loan administration, financial close and reconciliation.",Head of Operations
-OU-04,Treasury & Cash Operations,"Liquidity, treasury dealing, cash forecasting and branch cash balancing.",Treasurer / Cash Operations Lead
-OU-05,Information Technology (IT),"Identity and access administration, change/release coordination, system availability, backup and recovery oversight.",IT Manager
-OU-06,Human Resources (HR),"Recruitment, employee records, payroll coordination, joiner/mover/leaver notifications.",Head of HR
+OU ID,Organisational Unit,Primary Responsibilities,Oversight,Headcount,Loaded Hourly Cost
+OU-01,Risk & Compliance,"AML monitoring, sanctions, credit risk oversight, regulatory compliance and reporting review.",Chief Risk & Compliance Officer,45,55
+OU-02,Front Office,"Customer acquisition and servicing, account opening, digital-channel support, loan origination.",Head of Front Office,90,38
+OU-03,Back Office,"Payments processing, transaction operations, account maintenance, loan administration, financial close and reconciliation.",Head of Operations,95,35
+OU-04,Treasury & Cash Operations,"Liquidity, treasury dealing, cash forecasting and branch cash balancing.",Treasurer / Cash Operations Lead,14,65
+OU-05,Information Technology (IT),"Identity and access administration, change/release coordination, system availability, backup and recovery oversight.",IT Manager,30,60
+OU-06,Human Resources (HR),"Recruitment, employee records, payroll coordination, joiner/mover/leaver notifications.",Head of HR,10,40

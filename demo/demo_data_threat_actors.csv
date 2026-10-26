@@ -1,0 +1,7 @@
+Actor ID,Threat Actor,Actor Type,Motivation,Capability,Sector Targeting,ATT&CK Group IDs,Description,Reference
+TA-01,Ransom crew,Cybercrime,Financial,High,High,G0032,Financially motivated ransomware crew targeting banks.,MITRE G0032
+TA-02,Payment fraud ring,Cybercrime,Financial,Medium,High,,Fraud ring abusing payment and digital channels.,Internal TI
+TA-03,Disgruntled insider,Insider,Grievance,Medium,Medium,,Employee with legitimate access and a grievance.,Internal TI
+TA-04,Strategic espionage unit,Nation-State,Espionage,High,High,G0016,State actor seeking customer and deal intelligence.,MITRE G0016
+TA-05,Compromised supplier,Supply Chain,Financial,Medium,Medium,,Supplier account or software update used as access.,Internal TI
+TA-06,Opportunistic scanner,Opportunistic,Financial,Low,Low,,Internet-wide scanning with commodity tooling.,Internal TI
