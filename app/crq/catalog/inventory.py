@@ -1,6 +1,6 @@
 from packageurl import PackageURL
 
-from catalog_io import connect, duplicate_ids, read_tabular, wait_for_database
+from crq.catalog.catalog_io import connect, duplicate_ids, read_tabular, wait_for_database
 
 COLUMNS = ("Component ID", "System ID", "PURL")
 
@@ -129,10 +129,10 @@ def _validate_row(values: dict, known_systems: set[str]) -> dict:
 
     purl = values["PURL"]
     if not purl:
-        errors["PURL"] = "not a valid PURL"
+        errors["PURL"] = "not a valid package URL"
     else:
         try:
             PackageURL.from_string(purl)
         except ValueError:
-            errors["PURL"] = "not a valid PURL"
+            errors["PURL"] = "not a valid package URL"
     return errors

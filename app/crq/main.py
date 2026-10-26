@@ -5,12 +5,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
-from inventory import init_db, list_inventory, process_upload
-from processes import add_process, init_processes, list_processes, update_process, upload_processes
-from systems import add_system, init_systems, list_systems, update_system, upload_systems
-from units import add_unit, init_units, list_units, update_unit, upload_units
-from vulnerabilities import clear_findings, init_vulnerability_db, list_findings, scan_vulnerabilities
-from monte_carlo import run_monte_carlo
+from crq.intelligence.actors import add_actor, init_actors, list_actors, update_actor, upload_actors
+from crq.risk.appetite import init_appetite
+from crq.risk.benchmarks import init_benchmarks
+from crq.risk.controls import add_control, init_controls, list_controls, update_control, upload_controls
+from crq.risk.decisions import approve_decision, get_decision, init_decisions, insert_record, list_decisions, verify_decision
+from crq.catalog.inventory import init_db, list_inventory, process_upload
+from crq.risk.monte_carlo import run_fair_simulation
+from crq.risk.portfolio import build_register, card, run_control_set
+from crq.catalog.processes import add_process, delete_process, init_processes, list_processes, update_process, upload_processes
+from crq.risk.report import ASSUMPTIONS, build_report, public_treatments, snapshot_inputs
+from crq.risk.risk_engine import apply_controls, build_target_context, collapse, data_quality, effective_factors, exposure_summary, load_scenario_context, suggest_factors
+from crq.risk.scenario_controls import add_scenario_control, init_scenario_controls, list_scenario_controls, update_scenario_control, upload_scenario_controls
+from crq.risk.scenarios import add_scenario, init_scenarios, list_scenarios, update_scenario, upload_scenarios
+from crq.catalog.systems import add_system, delete_system, init_systems, list_systems, update_system, upload_systems
+from crq.risk.treatment import build_treatments
+from crq.catalog.units import add_unit, delete_unit, init_units, list_units, update_unit, upload_units
+from crq.intelligence.vectors import add_vector, init_vectors, list_vectors, update_vector, upload_vectors
+from crq.version import BENCHMARKS_VERSION, INDEPENDENCE_NOTE, MODEL_VERSION
+from crq.intelligence.mitre import check_mitre, init_mitre_db, list_mitre, mitre_object, mitre_status
+from crq.intelligence.vulnerabilities import clear_findings, init_vulnerability_db, list_findings, scan_vulnerabilities
 
 
 @asynccontextmanager
@@ -19,7 +33,16 @@ async def lifespan(_app: FastAPI):
     init_units()
     init_systems()
     init_processes()
+    init_actors()
+    init_vectors()
+    init_controls()
+    init_scenarios()
+    init_scenario_controls()
+    init_appetite()
+    init_benchmarks()
+    init_decisions()
     init_vulnerability_db()
+    init_mitre_db()
     yield
 
 
@@ -29,7 +52,7 @@ app = FastAPI(
         "Monte Carlo simulation for frequency and magnitude using "
         "independent Beta PERT distributions."
     ),
-    version="2.0.0",
+    version=MODEL_VERSION,
     lifespan=lifespan,
 )
 
@@ -131,6 +154,13 @@ class AggregateLossResponse(BaseModel):
     exceedance_curve: ExceedanceCurveResponse
 
 
+class BreakdownResponse(BaseModel):
+    probability_of_loss_year: float
+    expected_annual_loss_by_form: dict[str, float]
+    expected_primary: float
+    expected_secondary: float
+
+
 class MCResponse(BaseModel):
     iterations: int
     seed: int
@@ -139,6 +169,8 @@ class MCResponse(BaseModel):
     aggregate_loss: AggregateLossResponse
     scatter: list[ScatterPointResponse]
     input: MCRequest
+    breakdown: BreakdownResponse | None = None
+    scenario: dict | None = None
 
 
 def _variable_response(result) -> VariableResponse:
@@ -201,7 +233,7 @@ def _aggregate_loss_response(result) -> AggregateLossResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "model_version": MODEL_VERSION}
 
 
 @app.get("/inventory")
@@ -218,6 +250,33 @@ def get_vulnerabilities() -> dict:
 def post_vulnerabilities() -> JSONResponse:
     status_code, body = scan_vulnerabilities()
     return JSONResponse(status_code=status_code, content=body)
+
+
+@app.get("/mitre/status")
+def get_mitre_status() -> dict:
+    return mitre_status()
+
+
+@app.post("/mitre/check")
+def post_mitre_check() -> JSONResponse:
+    status_code, body = check_mitre()
+    return JSONResponse(status_code=status_code, content=body)
+
+
+@app.get("/mitre/objects/{external_id}")
+def get_mitre_object(external_id: str) -> dict:
+    found = mitre_object(external_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="That ATT&CK object was not found.")
+    return found
+
+
+@app.get("/mitre/{collection}")
+def get_mitre_collection(collection: str, q: str = "") -> dict:
+    try:
+        return list_mitre(collection, q)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="That ATT&CK collection was not found.") from None
 
 
 @app.post("/inventory")
@@ -240,6 +299,8 @@ class UnitBody(BaseModel):
     organisational_unit: str = ""
     primary_responsibilities: str = ""
     oversight: str = ""
+    headcount: str | int | float | None = None
+    loaded_hourly_cost: str | int | float | None = None
 
 
 class UnitUpdateBody(UnitBody):
@@ -255,6 +316,9 @@ class SystemBody(BaseModel):
     criticality: str = ""
     data_classification: str = ""
     deployment: str = ""
+    internet_facing: str = ""
+    replacement_cost: str | int | float | None = None
+    records_held: str | int | float | None = None
 
 
 class SystemUpdateBody(SystemBody):
@@ -269,6 +333,10 @@ class ProcessEntryBody(BaseModel):
     primary_system_ids: str = ""
     criticality: str = ""
     key_information: str = ""
+    downtime_cost_per_hour: str | int | float | None = None
+    downtime_cost_per_hour_post_rto: str | int | float | None = None
+    rto_hours: str | int | float | None = None
+    fte_count: str | int | float | None = None
 
 
 class ProcessUpdateBody(ProcessEntryBody):
@@ -299,6 +367,12 @@ def put_unit_entry(body: UnitUpdateBody) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=payload)
 
 
+@app.delete("/units/entry")
+def delete_unit_entry(ou_id: str = Query(...)) -> JSONResponse:
+    status_code, payload = delete_unit(ou_id)
+    return JSONResponse(status_code=status_code, content=payload)
+
+
 @app.get("/systems")
 def get_systems() -> dict:
     return list_systems()
@@ -320,6 +394,12 @@ def post_system_entry(body: SystemBody) -> JSONResponse:
 @app.put("/systems/entry")
 def put_system_entry(body: SystemUpdateBody) -> JSONResponse:
     status_code, payload = update_system(body.previous_system_id, body.model_dump())
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.delete("/systems/entry")
+def delete_system_entry(system_id: str = Query(...)) -> JSONResponse:
+    status_code, payload = delete_system(system_id)
     return JSONResponse(status_code=status_code, content=payload)
 
 
@@ -347,30 +427,42 @@ def put_process_entry(body: ProcessUpdateBody) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=payload)
 
 
-@app.post("/mc", response_model=MCResponse)
+@app.delete("/processes/entry")
+def delete_process_entry(bp_id: str = Query(...)) -> JSONResponse:
+    status_code, payload = delete_process(bp_id)
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.post("/mc", response_model=MCResponse, response_model_exclude_none=True)
 def monte_carlo(body: MCRequest) -> MCResponse:
     """
-    Run a Monte Carlo simulation for frequency and magnitude.
+    Run a compound Poisson Monte Carlo simulation for frequency and magnitude.
 
-    Each variable is modeled with its own Beta PERT distribution derived from
-    a three-point estimate. Both variables share the same iteration count and
-    RNG seed.
+    Each variable is fit with a Beta PERT distribution from its three-point
+    estimate. A year draws that frequency as a loss-event rate, a Poisson
+    event count, and one magnitude for every event.
     """
     try:
-        result = run_monte_carlo(
-            frequency_minimum=body.frequency.minimum,
-            frequency_mode=body.frequency.mode,
-            frequency_maximum=body.frequency.maximum,
+        fair = run_fair_simulation(
+            lef=(body.frequency.minimum, body.frequency.mode, body.frequency.maximum),
             frequency_lambda=body.frequency.lambda_param,
-            magnitude_minimum=body.magnitude.minimum,
-            magnitude_mode=body.magnitude.mode,
-            magnitude_maximum=body.magnitude.maximum,
+            primary={"magnitude": (body.magnitude.minimum, body.magnitude.mode, body.magnitude.maximum)},
+            secondary={},
+            secondary_probability=0,
             magnitude_lambda=body.magnitude.lambda_param,
             iterations=body.iterations,
             seed=body.seed,
+            magnitude_reference=(body.magnitude.minimum, body.magnitude.mode, body.magnitude.maximum),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    result = fair.simulation
+    breakdown = BreakdownResponse(
+        probability_of_loss_year=fair.probability_of_loss_year,
+        expected_annual_loss_by_form=fair.expected_annual_loss_by_form,
+        expected_primary=fair.expected_primary,
+        expected_secondary=fair.expected_secondary,
+    )
 
     return MCResponse(
         iterations=result.iterations,
@@ -387,10 +479,11 @@ def monte_carlo(body: MCRequest) -> MCResponse:
             for point in result.scatter
         ],
         input=body,
+        breakdown=breakdown,
     )
 
 
-@app.get("/mc", response_model=MCResponse)
+@app.get("/mc", response_model=MCResponse, response_model_exclude_none=True)
 def monte_carlo_get(
     frequency_minimum: float = Query(..., description="Frequency minimum"),
     frequency_mode: float = Query(..., description="Frequency mode"),
@@ -422,3 +515,19 @@ def monte_carlo_get(
             seed=seed,
         )
     )
+
+
+from crq.risk.risk_api import mount as mount_risk_api
+
+mount_risk_api(
+    app,
+    {
+        "MCResponse": MCResponse,
+        "MCRequest": MCRequest,
+        "VariableInput": VariableInput,
+        "BreakdownResponse": BreakdownResponse,
+        "ScatterPointResponse": ScatterPointResponse,
+        "variable": _variable_response,
+        "aggregate": _aggregate_loss_response,
+    },
+)

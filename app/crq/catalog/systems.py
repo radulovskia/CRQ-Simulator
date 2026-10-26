@@ -1,4 +1,14 @@
-from catalog_io import connect, duplicate_ids, read_tabular, split_ids, wait_for_database
+from crq.catalog.catalog_io import (
+    connect,
+    duplicate_ids,
+    enum_error,
+    number_error,
+    parse_int,
+    parse_number,
+    read_tabular,
+    rename_column,
+    wait_for_database,
+)
 
 COLUMNS = (
     "System ID",
@@ -9,6 +19,9 @@ COLUMNS = (
     "Criticality",
     "Data Classification",
     "Deployment",
+    "Internet Facing",
+    "Replacement Cost",
+    "Records Held",
 )
 
 DB_FIELDS = {
@@ -20,10 +33,15 @@ DB_FIELDS = {
     "Criticality": "criticality",
     "Data Classification": "data_classification",
     "Deployment": "deployment",
+    "Internet Facing": "internet_facing",
+    "Replacement Cost": "replacement_cost",
+    "Records Held": "records_held",
 }
 
-CRITICALITY = {"Low", "Medium", "High"}
-CLASSIFICATION = {"Public", "Internal", "Confidential"}
+CRITICALITY = ("Low", "Medium", "High")
+CLASSIFICATION = ("Public", "Internal", "Confidential")
+DEPLOYMENT = ("Local", "Cloud", "Hybrid")
+FACING = ("Yes", "No", "Unknown")
 
 CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS software_systems (
@@ -34,7 +52,10 @@ CREATE TABLE IF NOT EXISTS software_systems (
     technical_custodian_ou_id TEXT NOT NULL,
     criticality TEXT NOT NULL,
     data_classification TEXT NOT NULL,
-    deployment TEXT NOT NULL
+    deployment TEXT NOT NULL,
+    internet_facing TEXT NOT NULL DEFAULT 'Unknown',
+    replacement_cost DOUBLE PRECISION,
+    records_held INTEGER
 )
 """
 
@@ -56,6 +77,18 @@ def init_systems() -> None:
     def apply(connection) -> None:
         connection.execute(CREATE_TABLE)
         connection.execute(CREATE_META)
+        connection.execute(
+            "ALTER TABLE software_systems ADD COLUMN IF NOT EXISTS internet_facing TEXT DEFAULT 'Unknown'"
+        )
+        connection.execute(
+            "UPDATE software_systems SET internet_facing = 'Unknown' WHERE internet_facing IS NULL"
+        )
+        connection.execute("ALTER TABLE software_systems ALTER COLUMN internet_facing SET NOT NULL")
+        rename_column(connection, "software_systems", "replacement_cost_eur", "replacement_cost")
+        connection.execute(
+            "ALTER TABLE software_systems ADD COLUMN IF NOT EXISTS replacement_cost DOUBLE PRECISION"
+        )
+        connection.execute("ALTER TABLE software_systems ADD COLUMN IF NOT EXISTS records_held INTEGER")
 
     wait_for_database(apply)
 
@@ -65,7 +98,8 @@ def list_systems() -> dict:
         rows = connection.execute(
             """
             SELECT system_id, software_system, primary_function, business_owner_ou_id,
-                   technical_custodian_ou_id, criticality, data_classification, deployment
+                   technical_custodian_ou_id, criticality, data_classification, deployment,
+                   internet_facing, replacement_cost, records_held
             FROM software_systems
             ORDER BY system_id
             """
@@ -141,10 +175,10 @@ def update_system(previous_system_id: str, fields: dict) -> tuple[int, dict]:
         if not _exists(connection, previous):
             return 404, {"ok": False, "error": "That software system was not found."}
         if cleaned["system_id"] != previous:
-            if previous in _referenced_system_ids(connection):
+            if previous in _rename_blocked_system_ids(connection):
                 return 422, {
                     "ok": False,
-                    "errors": {"System ID": "is still used by a business process or software component"},
+                    "errors": {"System ID": "is still used by a software component or risk scenario"},
                 }
             if _exists(connection, cleaned["system_id"]):
                 return 422, {"ok": False, "errors": {"System ID": "already exists"}}
@@ -159,21 +193,54 @@ def update_system(previous_system_id: str, fields: dict) -> tuple[int, dict]:
                     technical_custodian_ou_id = %(technical_custodian_ou_id)s,
                     criticality = %(criticality)s,
                     data_classification = %(data_classification)s,
-                    deployment = %(deployment)s
+                    deployment = %(deployment)s,
+                    internet_facing = %(internet_facing)s,
+                    replacement_cost = %(replacement_cost)s,
+                    records_held = %(records_held)s
                 WHERE system_id = %(previous)s
                 """,
                 {**cleaned, "previous": previous},
             )
+            if cleaned["system_id"] != previous:
+                connection.execute(
+                    "UPDATE process_systems SET system_id = %s WHERE system_id = %s",
+                    (cleaned["system_id"], previous),
+                )
+            connection.execute(TOUCH_META)
+    return 200, {"ok": True, **list_systems()}
+
+
+def delete_system(system_id: str) -> tuple[int, dict]:
+    previous = system_id.strip()
+    with connect() as connection:
+        if not _exists(connection, previous):
+            return 404, {"ok": False, "error": "That software system was not found."}
+        if previous in _referenced_system_ids(connection):
+            return 422, {
+                "ok": False,
+                "error": "That software system is still used by a business process, software component, or risk scenario.",
+            }
+        with connection.transaction():
+            connection.execute("DELETE FROM software_systems WHERE system_id = %s", (previous,))
             connection.execute(TOUCH_META)
     return 200, {"ok": True, **list_systems()}
 
 
 def _referenced_system_ids(connection) -> set[str]:
+    referenced = _rename_blocked_system_ids(connection)
+    for row in connection.execute("SELECT system_id FROM process_systems").fetchall():
+        referenced.add(row["system_id"])
+    return referenced
+
+
+def _rename_blocked_system_ids(connection) -> set[str]:
     referenced = set()
-    for row in connection.execute("SELECT primary_system_ids FROM business_processes").fetchall():
-        referenced.update(split_ids(row["primary_system_ids"]))
     for row in connection.execute("SELECT system_id FROM software_components").fetchall():
         referenced.add(row["system_id"])
+    for row in connection.execute(
+        "SELECT target_id FROM risk_scenarios WHERE target_type = 'Software System'"
+    ).fetchall():
+        referenced.add(row["target_id"])
     return referenced
 
 
@@ -196,11 +263,13 @@ def _insert(connection, row: dict) -> None:
         """
         INSERT INTO software_systems (
             system_id, software_system, primary_function, business_owner_ou_id,
-            technical_custodian_ou_id, criticality, data_classification, deployment
+            technical_custodian_ou_id, criticality, data_classification, deployment,
+            internet_facing, replacement_cost, records_held
         )
         VALUES (
             %(system_id)s, %(software_system)s, %(primary_function)s, %(business_owner_ou_id)s,
-            %(technical_custodian_ou_id)s, %(criticality)s, %(data_classification)s, %(deployment)s
+            %(technical_custodian_ou_id)s, %(criticality)s, %(data_classification)s, %(deployment)s,
+            %(internet_facing)s, %(replacement_cost)s, %(records_held)s
         )
         """,
         row,
@@ -225,22 +294,31 @@ def _review(parsed: list[tuple[int, dict]], ou_ids: set[str]) -> tuple[list[dict
         if errors:
             any_invalid = True
         review.append({"row": row_number, "values": values, "errors": errors})
-        stored.append(_clean({DB_FIELDS[column]: values[column] for column in COLUMNS}))
+        stored.append(_clean(_fields_from_row(values)))
     return review, stored, any_invalid
 
 
+def _fields_from_row(values: dict) -> dict:
+    return {DB_FIELDS[column]: values[column] for column in COLUMNS}
+
+
 def _validate_fields(fields: dict, ou_ids: set[str]) -> dict:
-    cleaned = _clean(fields)
+    facing = str(fields.get("internet_facing") or "").strip() or "Unknown"
     return _validate_values(
         {
-            "System ID": cleaned["system_id"],
-            "Software System": cleaned["software_system"],
-            "Primary Function": cleaned["primary_function"],
-            "Business Owner OU ID": cleaned["business_owner_ou_id"],
-            "Technical Custodian OU ID": cleaned["technical_custodian_ou_id"],
-            "Criticality": cleaned["criticality"],
-            "Data Classification": cleaned["data_classification"],
-            "Deployment": cleaned["deployment"],
+            "System ID": str(fields.get("system_id") or "").strip(),
+            "Software System": str(fields.get("software_system") or "").strip(),
+            "Primary Function": str(fields.get("primary_function") or "").strip(),
+            "Business Owner OU ID": str(fields.get("business_owner_ou_id") or "").strip(),
+            "Technical Custodian OU ID": str(fields.get("technical_custodian_ou_id") or "").strip(),
+            "Criticality": str(fields.get("criticality") or "").strip(),
+            "Data Classification": str(fields.get("data_classification") or "").strip(),
+            "Deployment": str(fields.get("deployment") or "").strip(),
+            "Internet Facing": facing,
+            "Replacement Cost": fields.get("replacement_cost")
+            if fields.get("replacement_cost") is not None
+            else "",
+            "Records Held": fields.get("records_held") if fields.get("records_held") is not None else "",
         },
         ou_ids,
     )
@@ -248,22 +326,38 @@ def _validate_fields(fields: dict, ou_ids: set[str]) -> dict:
 
 def _validate_values(values: dict, ou_ids: set[str]) -> dict:
     errors = {}
-    for column in ("System ID", "Software System", "Primary Function", "Deployment"):
-        if not values[column]:
+    for column in ("System ID", "Software System", "Primary Function"):
+        if not str(values[column] or "").strip():
             errors[column] = "must not be empty"
     for column in ("Business Owner OU ID", "Technical Custodian OU ID"):
-        if not values[column]:
+        if not str(values[column] or "").strip():
             errors[column] = "must not be empty"
-        elif values[column] not in ou_ids:
-            errors[column] = "must be an existing OU ID"
-    if values["Criticality"] not in CRITICALITY:
-        errors["Criticality"] = 'must be "Low", "Medium", or "High"'
-    if values["Data Classification"] not in CLASSIFICATION:
-        errors["Data Classification"] = 'must be "Public", "Internal", or "Confidential"'
+        elif str(values[column]).strip() not in ou_ids:
+            errors[column] = "must be an existing organisational unit"
+    criticality = enum_error(str(values["Criticality"] or "").strip(), CRITICALITY)
+    if criticality:
+        errors["Criticality"] = criticality
+    classification = enum_error(str(values["Data Classification"] or "").strip(), CLASSIFICATION)
+    if classification:
+        errors["Data Classification"] = classification
+    deployment = enum_error(str(values["Deployment"] or "").strip(), DEPLOYMENT)
+    if deployment:
+        errors["Deployment"] = deployment
+    facing = str(values["Internet Facing"] or "").strip() or "Unknown"
+    facing_error = enum_error(facing, FACING)
+    if facing_error:
+        errors["Internet Facing"] = facing_error
+    cost_error = number_error(values["Replacement Cost"], allow_blank=True, minimum=0)
+    if cost_error:
+        errors["Replacement Cost"] = cost_error
+    records_error = number_error(values["Records Held"], allow_blank=True, minimum=0, integer=True)
+    if records_error:
+        errors["Records Held"] = records_error
     return errors
 
 
 def _clean(fields: dict) -> dict:
+    facing = str(fields.get("internet_facing") or "").strip() or "Unknown"
     return {
         "system_id": str(fields.get("system_id") or "").strip(),
         "software_system": str(fields.get("software_system") or "").strip(),
@@ -273,4 +367,7 @@ def _clean(fields: dict) -> dict:
         "criticality": str(fields.get("criticality") or "").strip(),
         "data_classification": str(fields.get("data_classification") or "").strip(),
         "deployment": str(fields.get("deployment") or "").strip(),
+        "internet_facing": facing,
+        "replacement_cost": parse_number(fields.get("replacement_cost")),
+        "records_held": parse_int(fields.get("records_held")),
     }

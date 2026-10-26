@@ -11,7 +11,7 @@ from datetime import datetime
 import psycopg
 from psycopg.rows import dict_row
 
-from inventory import list_inventory
+from crq.catalog.inventory import list_inventory
 
 OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"
 OSV_VULN_URL = "https://api.osv.dev/v1/vulns/"
@@ -29,6 +29,8 @@ CVSS_METRICS = (
     ("cvssMetricV2", "2.0"),
 )
 
+KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+
 CREATE_FINDINGS = """
 CREATE TABLE IF NOT EXISTS findings (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -38,7 +40,10 @@ CREATE TABLE IF NOT EXISTS findings (
     cves TEXT,
     cvss_score DOUBLE PRECISION,
     cvss_version TEXT,
-    epss DOUBLE PRECISION
+    epss DOUBLE PRECISION,
+    component_id TEXT,
+    system_id TEXT,
+    known_exploited BOOLEAN
 )
 """
 
@@ -47,6 +52,10 @@ ADD_SCORE_COLUMNS = (
     "ALTER TABLE findings ADD COLUMN IF NOT EXISTS cvss_score DOUBLE PRECISION",
     "ALTER TABLE findings ADD COLUMN IF NOT EXISTS cvss_version TEXT",
     "ALTER TABLE findings ADD COLUMN IF NOT EXISTS epss DOUBLE PRECISION",
+    "ALTER TABLE findings ADD COLUMN IF NOT EXISTS component_id TEXT",
+    "ALTER TABLE findings ADD COLUMN IF NOT EXISTS system_id TEXT",
+    "ALTER TABLE findings ADD COLUMN IF NOT EXISTS known_exploited BOOLEAN",
+    "ALTER TABLE vulnerability_meta ADD COLUMN IF NOT EXISTS kev_checked_at TIMESTAMPTZ",
 )
 
 CREATE_META = """
@@ -114,15 +123,17 @@ def list_findings() -> dict:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT purl, vuln_id, modified, cves, cvss_score, cvss_version, epss
+            SELECT purl, vuln_id, modified, cves, cvss_score, cvss_version, epss,
+                   component_id, system_id, known_exploited
             FROM findings
-            ORDER BY purl, vuln_id
+            ORDER BY system_id, purl, vuln_id
             """
         ).fetchall()
         meta = connection.execute(
-            "SELECT extracted_at FROM vulnerability_meta WHERE id = 1"
+            "SELECT extracted_at, kev_checked_at FROM vulnerability_meta WHERE id = 1"
         ).fetchone()
     extracted_at = meta["extracted_at"].isoformat() if meta else None
+    kev_checked_at = meta["kev_checked_at"].isoformat() if meta and meta["kev_checked_at"] else None
     return {
         "items": [
             {
@@ -133,27 +144,64 @@ def list_findings() -> dict:
                 "cvss_score": row["cvss_score"],
                 "cvss_version": row["cvss_version"],
                 "epss": row["epss"],
+                "component_id": row["component_id"],
+                "system_id": row["system_id"],
+                "known_exploited": row["known_exploited"],
             }
             for row in rows
         ],
         "extracted_at": extracted_at,
+        "kev_checked_at": kev_checked_at,
     }
 
 
 def scan_vulnerabilities() -> tuple[int, dict]:
-    purls = list(dict.fromkeys(item["purl"] for item in list_inventory()["items"] if item.get("purl")))
+    inventory = [item for item in list_inventory()["items"] if item.get("purl")]
+    purls = list(dict.fromkeys(item["purl"] for item in inventory))
     if not purls:
         return 422, {"ok": False, "error": "Upload an asset inventory before scanning."}
 
+    by_purl: dict[str, list[tuple[str, str]]] = {}
+    for item in inventory:
+        by_purl.setdefault(item["purl"], []).append((item["component_id"], item["system_id"]))
+
     try:
-        findings = _query_osv(purls)
-        _attach_scores(findings)
+        unique = _query_osv(purls)
+        _attach_scores(unique)
     except OsvError as exc:
         return 502, {"ok": False, "error": str(exc)}
 
-    _replace_findings(findings)
+    kev = _kev_cves()
+    findings = []
+    for base in unique:
+        aliases = [part.strip().upper() for part in (base.get("cves") or "").split(",") if part.strip()]
+        known = None if kev is None else any(alias in kev for alias in aliases)
+        for component_id, system_id in by_purl.get(base["purl"], []):
+            findings.append(
+                {
+                    **base,
+                    "component_id": component_id,
+                    "system_id": system_id,
+                    "known_exploited": known,
+                }
+            )
+
+    _replace_findings(findings, kev is not None)
     stored = list_findings()
     return 200, {"ok": True, "count": len(stored["items"]), **stored}
+
+
+def _kev_cves() -> set[str] | None:
+    try:
+        payload = _get_json(KEV_URL)
+    except (OsvError, TimeoutError, json.JSONDecodeError, UnicodeError):
+        return None
+    found = set()
+    for entry in payload.get("vulnerabilities") or []:
+        cve_id = entry.get("cveID")
+        if isinstance(cve_id, str) and cve_id:
+            found.add(cve_id.upper())
+    return found
 
 
 def _query_osv(purls: list[str]) -> list[dict]:
@@ -368,7 +416,7 @@ def clear_findings() -> None:
             connection.execute("DELETE FROM vulnerability_meta")
 
 
-def _replace_findings(findings: list[dict]) -> None:
+def _replace_findings(findings: list[dict], kev_checked: bool) -> None:
     with connect() as connection:
         with connection.transaction():
             connection.execute("DELETE FROM findings")
@@ -376,18 +424,25 @@ def _replace_findings(findings: list[dict]) -> None:
                 with connection.cursor() as cursor:
                     cursor.executemany(
                         """
-                        INSERT INTO findings (purl, vuln_id, modified, cves, cvss_score, cvss_version, epss)
+                        INSERT INTO findings (
+                            purl, vuln_id, modified, cves, cvss_score, cvss_version, epss,
+                            component_id, system_id, known_exploited
+                        )
                         VALUES (
                             %(purl)s, %(vuln_id)s, %(modified)s, %(cves)s,
-                            %(cvss_score)s, %(cvss_version)s, %(epss)s
+                            %(cvss_score)s, %(cvss_version)s, %(epss)s,
+                            %(component_id)s, %(system_id)s, %(known_exploited)s
                         )
                         """,
                         findings,
                     )
             connection.execute(
                 """
-                INSERT INTO vulnerability_meta (id, extracted_at)
-                VALUES (1, NOW())
-                ON CONFLICT (id) DO UPDATE SET extracted_at = EXCLUDED.extracted_at
-                """
+                INSERT INTO vulnerability_meta (id, extracted_at, kev_checked_at)
+                VALUES (1, NOW(), CASE WHEN %(kev_checked)s THEN NOW() ELSE NULL END)
+                ON CONFLICT (id) DO UPDATE
+                SET extracted_at = EXCLUDED.extracted_at,
+                    kev_checked_at = EXCLUDED.kev_checked_at
+                """,
+                {"kev_checked": kev_checked},
             )
