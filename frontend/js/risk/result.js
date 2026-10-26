@@ -141,12 +141,25 @@ function formatCompact(value) {
   return compactFormatter.format(value);
 }
 
+const CURRENCY_SIGN = "¤";
+let plainMoney = false;
+
+function formatSignedMoney(value, formattedAbs) {
+  const sign = value < 0 ? "-" : "";
+  if (plainMoney) return `${sign}${formattedAbs}`;
+  return `${sign}${CURRENCY_SIGN} ${formattedAbs}`;
+}
+
 function formatMoneyCompact(value) {
-  return value < 0 ? `-$${compactFormatter.format(-value)}` : `$${compactFormatter.format(value)}`;
+  return formatSignedMoney(value, compactFormatter.format(Math.abs(value)));
 }
 
 function formatMoney(value) {
-  return value < 0 ? `-$${numberFormatter.format(-value)}` : `$${numberFormatter.format(value)}`;
+  return formatSignedMoney(value, numberFormatter.format(Math.abs(value)));
+}
+
+function moneyAxisName(label) {
+  return plainMoney ? label : `${label} (${CURRENCY_SIGN})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -479,9 +492,9 @@ function frequencyHistogramOption(data, theme, interactive, widthPx) {
     binLabel: "Frequency bin",
     saveName: "frequency-histogram",
     markerDefinitions: [
-      { label: "P5", value: frequency.p5, color: theme.colors.p5 },
+      { label: "5th Percentile", value: frequency.p5, color: theme.colors.p5 },
       { label: "Mean", value: frequency.mean, color: theme.colors.mean },
-      { label: "P95", value: frequency.p95, color: theme.colors.p95 },
+      { label: "95th Percentile", value: frequency.p95, color: theme.colors.p95 },
     ],
   });
 }
@@ -491,14 +504,14 @@ function magnitudeHistogramOption(data, theme, interactive, widthPx) {
   return histogramOption(theme, interactive, widthPx, {
     histogram: magnitude.histogram,
     color: theme.colors.magnitude,
-    xName: "Loss per event ($)",
+    xName: moneyAxisName("Loss per event"),
     money: true,
     binLabel: "Magnitude bin",
     saveName: "magnitude-histogram",
     markerDefinitions: [
-      { label: "P5", value: magnitude.p5, color: theme.colors.p5 },
+      { label: "5th Percentile", value: magnitude.p5, color: theme.colors.p5 },
       { label: "Mean", value: magnitude.mean, color: theme.colors.mean },
-      { label: "P95", value: magnitude.p95, color: theme.colors.p95 },
+      { label: "95th Percentile", value: magnitude.p95, color: theme.colors.p95 },
     ],
   });
 }
@@ -508,16 +521,16 @@ function aggregateHistogramOption(data, theme, interactive, widthPx) {
   return histogramOption(theme, interactive, widthPx, {
     histogram: loss.histogram,
     color: theme.colors.aggregate,
-    xName: "Annual loss ($)",
+    xName: moneyAxisName("Annual loss"),
     money: true,
     binLabel: "Annual loss bin",
     saveName: "aggregate-loss-histogram",
     markerDefinitions: [
       { label: "Mean", value: loss.mean, color: theme.colors.mean },
-      { label: "VaR 95", value: loss.var_95, color: theme.colors.var95 },
-      { label: "VaR 99", value: loss.var_99, color: theme.colors.var99 },
-      { label: "TVaR 95", value: loss.tvar_95, color: theme.colors.tvar95 },
-      { label: "TVaR 99", value: loss.tvar_99, color: theme.colors.tvar99 },
+      { label: "Value at Risk 95", value: loss.var_95, color: theme.colors.var95 },
+      { label: "Value at Risk 99", value: loss.var_99, color: theme.colors.var99 },
+      { label: "Tail Value at Risk 95", value: loss.tvar_95, color: theme.colors.tvar95 },
+      { label: "Tail Value at Risk 99", value: loss.tvar_99, color: theme.colors.tvar99 },
     ],
   });
 }
@@ -529,8 +542,8 @@ function exceedanceOption(data, theme, interactive, widthPx) {
   const markers = buildMarkers(
     [
       { label: "Mean", value: loss.mean, color: theme.colors.mean },
-      { label: "VaR 95", value: loss.var_95, color: theme.colors.var95 },
-      { label: "VaR 99", value: loss.var_99, color: theme.colors.var99 },
+      { label: "Value at Risk 95", value: loss.var_95, color: theme.colors.var95 },
+      { label: "Value at Risk 99", value: loss.var_99, color: theme.colors.var99 },
     ],
     formatMoney,
     legendValueFormat(interactive, true),
@@ -561,7 +574,7 @@ function exceedanceOption(data, theme, interactive, widthPx) {
         return tooltipHtml(theme, "Loss exceedance", rows);
       },
     },
-    xAxis: valueAxis(theme, { name: "Annual loss ($)", formatter: formatMoneyCompact, scale: true }),
+    xAxis: valueAxis(theme, { name: moneyAxisName("Annual loss"), formatter: formatMoneyCompact, scale: true }),
     yAxis: valueAxis(theme, {
       name: "Exceedance probability",
       formatter: (value) => percentFormatter.format(value),
@@ -663,7 +676,7 @@ function frequencyPertOption(data, theme, interactive, widthPx) {
 function magnitudePertOption(data, theme, interactive, widthPx) {
   return pertOption(data.magnitude.distribution, theme, interactive, widthPx, {
     color: theme.colors.magnitude,
-    xName: "Loss per event ($)",
+    xName: moneyAxisName("Loss per event"),
     money: true,
     saveName: "magnitude-pert",
   });
@@ -679,7 +692,7 @@ function scatterOption(data, theme, interactive) {
     ...baseOption(theme, interactive, { trigger: "item", saveName: "frequency-vs-magnitude" }),
     grid: { left: 66, right: 104, top: interactive ? 32 : 12, bottom: 48 },
     xAxis: valueAxis(theme, { name: "Events per year", formatter: formatCompact, scale: true }),
-    yAxis: valueAxis(theme, { name: "Loss per event ($)", formatter: formatMoneyCompact, scale: true, nameGap: 46 }),
+    yAxis: valueAxis(theme, { name: moneyAxisName("Loss per event"), formatter: formatMoneyCompact, scale: true, nameGap: 46 }),
     visualMap: {
       type: "continuous",
       dimension: 2,
@@ -728,25 +741,25 @@ const CHART_SPECS = {
     elementId: "frequency-chart",
     build: frequencyHistogramOption,
     title: "Frequency histogram",
-    caption: "Simulated annual event frequency with P5, mean and P95.",
+    caption: "Simulated annual event frequency with the 5th percentile, mean and 95th percentile.",
   },
   magnitudeHistogram: {
     elementId: "magnitude-chart",
     build: magnitudeHistogramOption,
     title: "Magnitude histogram",
-    caption: "Simulated loss per event with P5, mean and P95.",
+    caption: "Simulated loss per event with the 5th percentile, mean and 95th percentile.",
   },
   aggregateHistogram: {
     elementId: "aggregate-loss-chart",
     build: aggregateHistogramOption,
     title: "Aggregate loss histogram",
-    caption: "Annual loss (frequency × magnitude) across all simulations, with mean and VaR / TVaR tail-risk markers.",
+    caption: "Annual loss (frequency × magnitude) across all simulations, with mean and Value at Risk / Tail Value at Risk markers.",
   },
   exceedance: {
     elementId: "lec-chart",
     build: exceedanceOption,
     title: "Loss exceedance curve",
-    caption: "Probability that the annual loss exceeds a given amount; VaR 95 / 99 mark the 5% and 1% thresholds.",
+    caption: "Probability that the annual loss exceeds a given amount; Value at Risk 95 and 99 mark the 5% and 1% thresholds.",
   },
   frequencyPert: {
     elementId: "frequency-pert-chart",
@@ -807,13 +820,13 @@ function renderVariableStats(container, variable) {
   const stats = [
     ["Mean", variable.mean],
     ["Median", variable.median],
-    ["Std dev", variable.std],
-    ["P5", variable.p5],
-    ["P50", variable.p50],
-    ["P95", variable.p95],
-    ["P99", variable.p99],
-    ["Sim min", variable.min],
-    ["Sim max", variable.max],
+    ["Standard Deviation", variable.std],
+    ["5th Percentile", variable.p5],
+    ["50th Percentile", variable.p50],
+    ["95th Percentile", variable.p95],
+    ["99th Percentile", variable.p99],
+    ["Simulated Minimum", variable.min],
+    ["Simulated Maximum", variable.max],
   ];
 
   container.replaceChildren(
@@ -827,15 +840,15 @@ function renderAggregateStats(container, aggregateLoss) {
   const stats = [
     ["Mean loss", aggregateLoss.mean],
     ["Median loss", aggregateLoss.median],
-    ["Std dev", aggregateLoss.std],
-    ["P5", aggregateLoss.p5],
-    ["P50", aggregateLoss.p50],
-    ["P95 / VaR 95", aggregateLoss.var_95],
-    ["P99 / VaR 99", aggregateLoss.var_99],
-    ["TVaR 95", aggregateLoss.tvar_95],
-    ["TVaR 99", aggregateLoss.tvar_99],
-    ["Sim min", aggregateLoss.min],
-    ["Sim max", aggregateLoss.max],
+    ["Standard Deviation", aggregateLoss.std],
+    ["5th Percentile", aggregateLoss.p5],
+    ["50th Percentile", aggregateLoss.p50],
+    ["95th Percentile / Value at Risk 95", aggregateLoss.var_95],
+    ["99th Percentile / Value at Risk 99", aggregateLoss.var_99],
+    ["Tail Value at Risk 95", aggregateLoss.tvar_95],
+    ["Tail Value at Risk 99", aggregateLoss.tvar_99],
+    ["Simulated Minimum", aggregateLoss.min],
+    ["Simulated Maximum", aggregateLoss.max],
   ];
 
   container.replaceChildren(
@@ -861,6 +874,15 @@ function renderResults(data) {
     renderStat("Iterations", numberFormatter.format(data.iterations)),
   );
 
+  if (data.scenario) {
+    sharedStats.appendChild(renderStat("Scenario", data.scenario.scenario_id));
+    sharedStats.appendChild(renderStat("Control set", data.scenario.control_set));
+  }
+  if (data.breakdown) {
+    sharedStats.appendChild(renderStat("P(loss year)", percentFormatter.format(data.breakdown.probability_of_loss_year)));
+    sharedStats.appendChild(renderStat("Primary loss", formatMoney(data.breakdown.expected_primary)));
+    sharedStats.appendChild(renderStat("Secondary loss", formatMoney(data.breakdown.expected_secondary)));
+  }
   renderVariableStats(frequencyStats, data.frequency);
   renderVariableStats(magnitudeStats, data.magnitude);
   renderAggregateStats(aggregateStats, data.aggregate_loss);
@@ -964,7 +986,7 @@ function pdfAddSummaryPage(doc, data) {
     doc,
     textX,
     y,
-    `Seed: ${data.seed}  |  Iterations: ${numberFormatter.format(data.iterations)}`,
+    `Seed: ${data.seed}  |  Iterations: ${numberFormatter.format(data.iterations)}${data.scenario ? `  |  ${data.scenario.scenario_id}` : ""}${data.breakdown ? `  |  P(loss year) ${percentFormatter.format(data.breakdown.probability_of_loss_year)}` : ""}`,
     { fontSize: 9, color: [71, 85, 105] },
   );
   y += PDF_SECTION_GAP + 2;
@@ -996,27 +1018,27 @@ function pdfAddSummaryPage(doc, data) {
       return buildStatsRows([
         ["Mean", stats.mean],
         ["Median", stats.median],
-        ["Std dev", stats.std],
-        ["P5", stats.p5],
-        ["P50", stats.p50],
-        ["P95 / VaR 95", stats.var_95],
-        ["P99 / VaR 99", stats.var_99],
-        ["TVaR 95", stats.tvar_95],
-        ["TVaR 99", stats.tvar_99],
-        ["Sim min", stats.min],
-        ["Sim max", stats.max],
+        ["Standard Deviation", stats.std],
+        ["5th Percentile", stats.p5],
+        ["50th Percentile", stats.p50],
+        ["95th Percentile / Value at Risk 95", stats.var_95],
+        ["99th Percentile / Value at Risk 99", stats.var_99],
+        ["Tail Value at Risk 95", stats.tvar_95],
+        ["Tail Value at Risk 99", stats.tvar_99],
+        ["Simulated Minimum", stats.min],
+        ["Simulated Maximum", stats.max],
       ]);
     }
     return buildStatsRows([
       ["Mean", stats.mean],
       ["Median", stats.median],
-      ["Std dev", stats.std],
-      ["P5", stats.p5],
-      ["P50", stats.p50],
-      ["P95", stats.p95],
-      ["P99", stats.p99],
-      ["Sim min", stats.min],
-      ["Sim max", stats.max],
+      ["Standard Deviation", stats.std],
+      ["5th Percentile", stats.p5],
+      ["50th Percentile", stats.p50],
+      ["95th Percentile", stats.p95],
+      ["99th Percentile", stats.p99],
+      ["Simulated Minimum", stats.min],
+      ["Simulated Maximum", stats.max],
     ]);
   };
 
@@ -1126,20 +1148,23 @@ function buildStatsRows(stats) {
 function buildSimulationPdf(data) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-
-  pdfAddSummaryPage(doc, data);
-  pdfAddChartPage(doc, data, "Loss distribution", [
-    { specs: [CHART_SPECS.aggregateHistogram], height: 72 },
-    { specs: [CHART_SPECS.exceedance], height: 72 },
-    { specs: [CHART_SPECS.frequencyHistogram, CHART_SPECS.magnitudeHistogram], height: 62 },
-  ]);
-  pdfAddChartPage(doc, data, "Input uncertainty", [
-    { specs: [CHART_SPECS.frequencyPert, CHART_SPECS.magnitudePert], height: 62 },
-    { specs: [CHART_SPECS.scatter], height: 118 },
-  ]);
-  pdfAddFooters(doc, data);
-
-  return doc;
+  plainMoney = true;
+  try {
+    pdfAddSummaryPage(doc, data);
+    pdfAddChartPage(doc, data, "Loss distribution", [
+      { specs: [CHART_SPECS.aggregateHistogram], height: 72 },
+      { specs: [CHART_SPECS.exceedance], height: 72 },
+      { specs: [CHART_SPECS.frequencyHistogram, CHART_SPECS.magnitudeHistogram], height: 62 },
+    ]);
+    pdfAddChartPage(doc, data, "Input uncertainty", [
+      { specs: [CHART_SPECS.frequencyPert, CHART_SPECS.magnitudePert], height: 62 },
+      { specs: [CHART_SPECS.scatter], height: 118 },
+    ]);
+    pdfAddFooters(doc, data);
+    return doc;
+  } finally {
+    plainMoney = false;
+  }
 }
 
 async function exportSimulationPdf() {
@@ -1153,6 +1178,11 @@ async function exportSimulationPdf() {
     return;
   }
 
+  const preview = window.open("about:blank", "_blank");
+  if (!preview) {
+    setStatus("Allow pop-ups to open the PDF in a new tab.", "error");
+    return;
+  }
   exportPdfButton.disabled = true;
   exportPdfButton.textContent = "Exporting...";
 
@@ -1160,10 +1190,15 @@ async function exportSimulationPdf() {
     await new Promise((resolve) => requestAnimationFrame(resolve));
     const data = lastSimulationData;
     const doc = buildSimulationPdf(data);
-    const timestamp = new Date().toISOString().slice(0, 10);
-    doc.save(`crq-simulation-${data.seed}-${timestamp}.pdf`);
-    setStatus("PDF exported successfully.", "success");
+    const url = doc.output("bloburl");
+    if (preview.closed) {
+      window.open(url, "_blank");
+    } else {
+      preview.location.replace(url);
+    }
+    setStatus("PDF opened in a new tab.", "success");
   } catch (error) {
+    if (!preview.closed) preview.close();
     setStatus(error.message || "PDF export failed.", "error");
   } finally {
     exportPdfButton.disabled = false;

@@ -3,6 +3,8 @@ const FIELD_ERRORS = {
   "Organisational Unit": "error-organisational-unit",
   "Primary Responsibilities": "error-primary-responsibilities",
   Oversight: "error-oversight",
+  Headcount: "error-headcount",
+  "Loaded Hourly Cost": "error-loaded-hourly-cost",
 };
 
 const entryModal = document.getElementById("entry-modal");
@@ -12,13 +14,17 @@ let previousId = null;
 
 const catalog = mountCatalog({
   endpoint: "/units",
+  deleteKeys: ["ou_id"],
   loadError: "The organisational units could not be loaded.",
-  reviewColumns: ["OU ID", "Organisational Unit", "Primary Responsibilities", "Oversight"],
+  reviewColumns: ["OU ID", "Organisational Unit", "Primary Responsibilities", "Oversight", "Headcount", "Loaded Hourly Cost"],
+  exportKeys: ["ou_id", "organisational_unit", "primary_responsibilities", "oversight", "headcount", "loaded_hourly_cost"],
   fields: [
     { key: "ou_id" },
     { key: "organisational_unit" },
     { key: "primary_responsibilities" },
     { key: "oversight" },
+    { key: "headcount", nullable: true },
+    { key: "loaded_hourly_cost", nullable: true },
   ],
   onCreate: () => openForm(null),
   onEdit: (item) => openForm(item),
@@ -30,7 +36,14 @@ function formValues() {
     organisational_unit: document.getElementById("field-organisational-unit").value.trim(),
     primary_responsibilities: document.getElementById("field-primary-responsibilities").value.trim(),
     oversight: document.getElementById("field-oversight").value.trim(),
+    headcount: optionalNumber("field-headcount"),
+    loaded_hourly_cost: optionalNumber("field-loaded-hourly-cost"),
   };
+}
+
+function optionalNumber(id) {
+  const raw = document.getElementById(id).value.trim();
+  return raw === "" ? null : Number(raw);
 }
 
 function openForm(item) {
@@ -40,6 +53,8 @@ function openForm(item) {
   document.getElementById("field-organisational-unit").value = item?.organisational_unit ?? "";
   document.getElementById("field-primary-responsibilities").value = item?.primary_responsibilities ?? "";
   document.getElementById("field-oversight").value = item?.oversight ?? "";
+  document.getElementById("field-headcount").value = item?.headcount ?? "";
+  document.getElementById("field-loaded-hourly-cost").value = item?.loaded_hourly_cost ?? "";
   showMappedErrors({}, FIELD_ERRORS);
   entryModal.hidden = false;
   document.getElementById("field-ou-id").focus();

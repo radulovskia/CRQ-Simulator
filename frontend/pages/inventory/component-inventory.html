@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Software Component Inventory</title>
-    <link rel="stylesheet" href="styles.css?v=15" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -14,18 +14,19 @@
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
         <li><a href="/organisational-units">Organisational Units</a></li>
-        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/software-systems">Software Systems</a></li>
+        <li><a href="/software-components">Software Components</a></li>
         <li><a href="/business-processes">Business Processes</a></li>
-        <li><a href="/component-inventory">Software Component Inventory</a></li>
         <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-        <li><a href="/monte-carlo">Manual Simulation</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
       </ul>
     </nav>
 
     <main class="page page-wide">
       <header class="inventory-header">
         <div class="hero">
-          <h1>Software Component Inventory</h1>
+          <h1>Software Components</h1>
           <p id="last-extraction" class="last-extraction" hidden></p>
         </div>
         <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Inventory</button>
@@ -33,7 +34,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: Component ID, System ID, and PURL. Ensure all columns are included and correctly formatted. The System ID must already exist in the Software Systems Catalog.
+          Upload a .csv or .xlsx file containing the following columns: Component ID, System ID, and Package URL. Ensure all columns are included and correctly formatted. The System ID must already exist in Software Systems.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -67,13 +68,13 @@
                   <button type="button" class="sort-button" data-field="software_system">Software System<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
                 <th aria-sort="none">
-                  <button type="button" class="sort-button" data-field="purl">PURL<span class="sort-indicator" aria-hidden="true"></span></button>
+                  <button type="button" class="sort-button" data-field="purl">Package URL<span class="sort-indicator" aria-hidden="true"></span></button>
                 </th>
               </tr>
               <tr class="filter-row">
                 <th><input type="search" data-field="component_id" aria-label="Filter Component ID" placeholder="Filter" /></th>
                 <th><input type="search" data-field="software_system" aria-label="Filter Software System" placeholder="Filter" /></th>
-                <th><input type="search" data-field="purl" aria-label="Filter PURL" placeholder="Filter" /></th>
+                <th><input type="search" data-field="purl" aria-label="Filter Package URL" placeholder="Filter" /></th>
               </tr>
             </thead>
             <tbody id="stored-body"></tbody>
@@ -88,8 +89,8 @@
 
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
-    <script src="menu.js?v=2"></script>
-    <script src="pagination.js?v=1"></script>
-    <script src="inventory.js?v=15"></script>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="/js/inventory/inventory.js?v=18"></script>
   </body>
 </html>

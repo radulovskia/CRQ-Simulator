@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
+  </head>
+  <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/">Home</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
+      </ul>
+    </nav>
+    <main class="page page-wide">
+      <header class="inventory-header">
+        <div class="hero"><h1>Risk Register</h1><p id="last-extraction" class="last-extraction" hidden></p></div>
+        <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Catalog</button>
+      </header>
+      <section id="upload-panel" class="panel upload-panel" hidden>
+        <p class="upload-explanation">Risk Register</p>
+        <div id="dropzone" class="dropzone"><button id="upload-button" type="button">Upload file</button><p class="dropzone-hint">or drag and drop a file here</p></div>
+      </section>
+      <section id="status" class="status" hidden></section>
+      <section id="review" class="panel inventory-panel" hidden>
+        <h2>Entries that do not comply</h2>
+        <div class="table-wrap"><table class="inventory-table"><thead id="review-head"></thead><tbody id="review-body"></tbody></table></div>
+      </section>
+      <section id="stored" class="panel inventory-panel" hidden>
+        <div class="table-toolbar"><button id="add-button" type="button" class="inventory-replace add-button">+</button></div>
+        <p id="catalog-count" class="inventory-count" hidden></p>
+        <div class="table-wrap"><table class="inventory-table"><thead></thead><tbody id="stored-body"></tbody></table></div>
+        <div class="results-footer"><p id="total-count" class="last-extraction" hidden></p><nav id="stored-pager" class="pager" hidden></nav></div>
+      </section>
+    </main>
+    <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
+    <div id="entry-modal" class="modal" hidden>
+      <form id="entry-form" class="modal-card panel">
+        <div class="modal-body">
+        <h2 id="entry-title"></h2>
+        <div id="entry-fields"></div>
+        </div>
+        <div class="modal-actions"><button id="entry-cancel" type="button" class="inventory-replace">Cancel</button><button id="entry-save" type="submit">Save</button></div>
+      </form>
+    </div>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="/js/risk/report.js?v=16"></script>
+    <script src="/js/risk/register.js?v=13"></script>
+  </body>
+</html>

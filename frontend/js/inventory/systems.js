@@ -7,6 +7,9 @@ const FIELD_ERRORS = {
   Criticality: "error-criticality",
   "Data Classification": "error-data-classification",
   Deployment: "error-deployment",
+  "Internet Facing": "error-internet-facing",
+  "Replacement Cost": "error-replacement-cost",
+  "Records Held": "error-records-held",
 };
 
 const entryModal = document.getElementById("entry-modal");
@@ -18,6 +21,7 @@ let previousId = null;
 
 const catalog = mountCatalog({
   endpoint: "/systems",
+  deleteKeys: ["system_id"],
   loadError: "The software systems could not be loaded.",
   reviewColumns: [
     "System ID",
@@ -28,6 +32,22 @@ const catalog = mountCatalog({
     "Criticality",
     "Data Classification",
     "Deployment",
+    "Internet Facing",
+    "Replacement Cost",
+    "Records Held",
+  ],
+  exportKeys: [
+    "system_id",
+    "software_system",
+    "primary_function",
+    "business_owner_ou_id",
+    "technical_custodian_ou_id",
+    "criticality",
+    "data_classification",
+    "deployment",
+    "internet_facing",
+    "replacement_cost",
+    "records_held",
   ],
   ranks: {
     criticality: { Low: 0, Medium: 1, High: 2 },
@@ -35,13 +55,14 @@ const catalog = mountCatalog({
   },
   fields: [
     { key: "system_id" },
-    { key: "software_system" },
-    { key: "primary_function" },
-    { key: "business_owner_ou" },
-    { key: "technical_custodian_ou" },
+    { key: "software_system", titleKey: "primary_function" },
+    { key: "business_owner_ou", detail: { key: "technical_custodian_ou", title: true } },
     { key: "criticality" },
     { key: "data_classification" },
     { key: "deployment" },
+    { key: "internet_facing" },
+    { key: "replacement_cost", nullable: true },
+    { key: "records_held", nullable: true },
   ],
   onCreate: () => openForm(null),
   onEdit: (item) => openForm(item),
@@ -79,6 +100,9 @@ async function openForm(item) {
   document.getElementById("field-criticality").value = item?.criticality ?? "";
   document.getElementById("field-data-classification").value = item?.data_classification ?? "";
   document.getElementById("field-deployment").value = item?.deployment ?? "";
+  document.getElementById("field-internet-facing").value = item?.internet_facing || "Unknown";
+  document.getElementById("field-replacement-cost").value = item?.replacement_cost ?? "";
+  document.getElementById("field-records-held").value = item?.records_held ?? "";
   entryModal.hidden = false;
   document.getElementById("field-system-id").focus();
 }
@@ -98,7 +122,15 @@ function formValues() {
     criticality: document.getElementById("field-criticality").value,
     data_classification: document.getElementById("field-data-classification").value,
     deployment: document.getElementById("field-deployment").value.trim(),
+    internet_facing: document.getElementById("field-internet-facing").value,
+    replacement_cost: optionalNumber("field-replacement-cost"),
+    records_held: optionalNumber("field-records-held"),
   };
+}
+
+function optionalNumber(id) {
+  const raw = document.getElementById(id).value.trim();
+  return raw === "" ? null : Number(raw);
 }
 
 async function saveForm(event) {
@@ -108,8 +140,8 @@ async function saveForm(event) {
   if (!values.system_id) errors["System ID"] = "must not be empty";
   if (!values.software_system) errors["Software System"] = "must not be empty";
   if (!values.primary_function) errors["Primary Function"] = "must not be empty";
-  if (!values.business_owner_ou_id) errors["Business Owner OU ID"] = "must be an existing OU ID";
-  if (!values.technical_custodian_ou_id) errors["Technical Custodian OU ID"] = "must be an existing OU ID";
+  if (!values.business_owner_ou_id) errors["Business Owner OU ID"] = "must be an existing organisational unit";
+  if (!values.technical_custodian_ou_id) errors["Technical Custodian OU ID"] = "must be an existing organisational unit";
   if (!["Low", "Medium", "High"].includes(values.criticality)) {
     errors.Criticality = 'must be "Low", "Medium", or "High"';
   }

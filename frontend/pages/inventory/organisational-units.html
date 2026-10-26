@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Organisational Units</title>
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -14,11 +14,12 @@
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
         <li><a href="/organisational-units">Organisational Units</a></li>
-        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/software-systems">Software Systems</a></li>
+        <li><a href="/software-components">Software Components</a></li>
         <li><a href="/business-processes">Business Processes</a></li>
-        <li><a href="/component-inventory">Software Component Inventory</a></li>
         <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-        <li><a href="/monte-carlo">Manual Simulation</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
       </ul>
     </nav>
 
@@ -33,7 +34,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: OU ID, Organisational Unit, Primary Responsibilities, and Oversight. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file with columns Organisational Unit ID, Organisational Unit, Primary Responsibilities, Oversight, Headcount, and Loaded Hourly Cost. Blank Headcount or Loaded Hourly Cost means Unknown, not zero.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -63,17 +64,21 @@
           <table class="inventory-table">
             <thead>
               <tr>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="ou_id">OU ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="ou_id">Organisational Unit ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="organisational_unit">Organisational Unit<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="primary_responsibilities">Primary Responsibilities<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="oversight">Oversight<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="headcount">Headcount<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="loaded_hourly_cost">Loaded Hourly Cost (¤)<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th class="edit-heading"><span class="visually-hidden">Edit</span></th>
               </tr>
               <tr class="filter-row">
-                <th><input type="search" data-field="ou_id" aria-label="Filter OU ID" placeholder="Filter" /></th>
+                <th><input type="search" data-field="ou_id" aria-label="Filter Organisational Unit ID" placeholder="Filter" /></th>
                 <th><input type="search" data-field="organisational_unit" aria-label="Filter Organisational Unit" placeholder="Filter" /></th>
                 <th><input type="search" data-field="primary_responsibilities" aria-label="Filter Primary Responsibilities" placeholder="Filter" /></th>
                 <th><input type="search" data-field="oversight" aria-label="Filter Oversight" placeholder="Filter" /></th>
+                <th><input type="search" data-field="headcount" aria-label="Filter Headcount" placeholder="Filter" /></th>
+                <th><input type="search" data-field="loaded_hourly_cost" aria-label="Filter Loaded Hourly Cost" placeholder="Filter" /></th>
                 <th></th>
               </tr>
             </thead>
@@ -91,11 +96,15 @@
 
     <div id="entry-modal" class="modal" hidden>
       <form id="entry-form" class="modal-card panel">
+        <div class="modal-body">
         <h2 id="entry-title">Add organisational unit</h2>
-        <label class="field">OU ID<input id="field-ou-id" type="text" autocomplete="off" /><span id="error-ou-id" class="field-error" hidden></span></label>
+        <label class="field">Organisational Unit ID<input id="field-ou-id" type="text" autocomplete="off" /><span id="error-ou-id" class="field-error" hidden></span></label>
         <label class="field">Organisational Unit<input id="field-organisational-unit" type="text" autocomplete="off" /><span id="error-organisational-unit" class="field-error" hidden></span></label>
         <label class="field">Primary Responsibilities<input id="field-primary-responsibilities" type="text" autocomplete="off" /><span id="error-primary-responsibilities" class="field-error" hidden></span></label>
         <label class="field">Oversight<input id="field-oversight" type="text" autocomplete="off" /><span id="error-oversight" class="field-error" hidden></span></label>
+        <label class="field">Headcount<input id="field-headcount" type="number" step="1" min="0" /><span id="error-headcount" class="field-error" hidden></span></label>
+        <label class="field">Loaded Hourly Cost (¤)<input id="field-loaded-hourly-cost" type="number" step="any" min="0" /><span id="error-loaded-hourly-cost" class="field-error" hidden></span></label>
+        </div>
         <div class="modal-actions">
           <button id="entry-cancel" type="button" class="inventory-replace">Cancel</button>
           <button id="entry-save" type="submit">Save</button>
@@ -103,9 +112,9 @@
       </form>
     </div>
 
-    <script src="menu.js?v=2"></script>
-    <script src="pagination.js?v=1"></script>
-    <script src="catalog.js?v=1"></script>
-    <script src="units.js?v=1"></script>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="/js/shared/catalog.js?v=14"></script>
+    <script src="/js/inventory/units.js?v=4"></script>
   </body>
 </html>

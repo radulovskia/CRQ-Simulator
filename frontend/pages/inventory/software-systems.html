@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Software Systems Catalog</title>
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -14,18 +14,19 @@
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
         <li><a href="/organisational-units">Organisational Units</a></li>
-        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/software-systems">Software Systems</a></li>
+        <li><a href="/software-components">Software Components</a></li>
         <li><a href="/business-processes">Business Processes</a></li>
-        <li><a href="/component-inventory">Software Component Inventory</a></li>
         <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-        <li><a href="/monte-carlo">Manual Simulation</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
       </ul>
     </nav>
 
     <main class="page page-wide">
       <header class="inventory-header">
         <div class="hero">
-          <h1>Software Systems Catalog</h1>
+          <h1>Software Systems</h1>
           <p id="last-extraction" class="last-extraction" hidden></p>
         </div>
         <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Catalog</button>
@@ -33,7 +34,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: System ID, Software System, Primary Function, Business Owner OU ID, Technical Custodian OU ID, Criticality, Data Classification, and Deployment. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file with columns System ID, Software System, Primary Function, Business Owner Organisational Unit ID, Technical Custodian Organisational Unit ID, Criticality, Data Classification, Deployment, Internet Facing, Replacement Cost, and Records Held. Blank cost or records means Unknown, not zero. Blank Internet Facing is stored as Unknown.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -65,20 +66,19 @@
               <tr>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="system_id">System ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="software_system">Software System<span class="sort-indicator" aria-hidden="true"></span></button></th>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="primary_function">Primary Function<span class="sort-indicator" aria-hidden="true"></span></button></th>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="business_owner_ou">Business Owner OU<span class="sort-indicator" aria-hidden="true"></span></button></th>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="technical_custodian_ou">Technical Custodian OU<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="business_owner_ou">Owner<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="data_classification">Data Classification<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="deployment">Deployment<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="internet_facing">Internet Facing<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="replacement_cost">Replacement Cost (¤)<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="records_held">Records Held<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th class="edit-heading"><span class="visually-hidden">Edit</span></th>
               </tr>
               <tr class="filter-row">
                 <th><input type="search" data-field="system_id" aria-label="Filter System ID" placeholder="Filter" /></th>
                 <th><input type="search" data-field="software_system" aria-label="Filter Software System" placeholder="Filter" /></th>
-                <th><input type="search" data-field="primary_function" aria-label="Filter Primary Function" placeholder="Filter" /></th>
-                <th><input type="search" data-field="business_owner_ou" aria-label="Filter Business Owner OU" placeholder="Filter" /></th>
-                <th><input type="search" data-field="technical_custodian_ou" aria-label="Filter Technical Custodian OU" placeholder="Filter" /></th>
+                <th><input type="search" data-field="business_owner_ou" aria-label="Filter Owner" placeholder="Filter" /></th>
                 <th>
                   <select data-field="criticality" aria-label="Filter Criticality">
                     <option value="">All</option>
@@ -95,7 +95,24 @@
                     <option value="Confidential">Confidential</option>
                   </select>
                 </th>
-                <th><input type="search" data-field="deployment" aria-label="Filter Deployment" placeholder="Filter" /></th>
+                <th>
+                  <select data-field="deployment" aria-label="Filter Deployment">
+                    <option value="">All</option>
+                    <option value="Local">Local</option>
+                    <option value="Cloud">Cloud</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </th>
+                <th>
+                  <select data-field="internet_facing" aria-label="Filter Internet Facing">
+                    <option value="">All</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </th>
+                <th><input type="search" data-field="replacement_cost" aria-label="Filter Replacement Cost" placeholder="Filter" /></th>
+                <th><input type="search" data-field="records_held" aria-label="Filter Records Held" placeholder="Filter" /></th>
                 <th></th>
               </tr>
             </thead>
@@ -113,6 +130,7 @@
 
     <div id="entry-modal" class="modal" hidden>
       <form id="entry-form" class="modal-card panel">
+        <div class="modal-body">
         <h2 id="entry-title">Add software system</h2>
         <label class="field">System ID<input id="field-system-id" type="text" autocomplete="off" /><span id="error-system-id" class="field-error" hidden></span></label>
         <label class="field">Software System<input id="field-software-system" type="text" autocomplete="off" /><span id="error-software-system" class="field-error" hidden></span></label>
@@ -138,6 +156,13 @@
           <span id="error-data-classification" class="field-error" hidden></span>
         </label>
         <label class="field">Deployment<input id="field-deployment" type="text" autocomplete="off" /><span id="error-deployment" class="field-error" hidden></span></label>
+        <label class="field">Internet Facing
+          <select id="field-internet-facing"><option>Unknown</option><option>Yes</option><option>No</option></select>
+          <span id="error-internet-facing" class="field-error" hidden></span>
+        </label>
+        <label class="field">Replacement Cost (¤)<input id="field-replacement-cost" type="number" step="any" min="0" /><span id="error-replacement-cost" class="field-error" hidden></span></label>
+        <label class="field">Records Held<input id="field-records-held" type="number" step="1" min="0" /><span id="error-records-held" class="field-error" hidden></span></label>
+        </div>
         <div class="modal-actions">
           <button id="entry-cancel" type="button" class="inventory-replace">Cancel</button>
           <button id="entry-save" type="submit">Save</button>
@@ -145,9 +170,9 @@
       </form>
     </div>
 
-    <script src="menu.js?v=2"></script>
-    <script src="pagination.js?v=1"></script>
-    <script src="catalog.js?v=1"></script>
-    <script src="systems.js?v=2"></script>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="/js/shared/catalog.js?v=14"></script>
+    <script src="/js/inventory/systems.js?v=8"></script>
   </body>
 </html>

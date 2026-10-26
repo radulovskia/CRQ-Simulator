@@ -6,6 +6,44 @@ const uploadPanel = document.getElementById("upload-panel");
 const dropzone = document.getElementById("dropzone");
 const uploadButton = document.getElementById("upload-button");
 const replaceButton = document.getElementById("replace-button");
+const exportButton = document.createElement("button");
+exportButton.type = "button";
+exportButton.className = "inventory-replace";
+exportButton.textContent = "Export Catalog";
+exportButton.hidden = true;
+const headerActions = document.createElement("div");
+headerActions.className = "header-actions";
+replaceButton.replaceWith(headerActions);
+headerActions.append(exportButton, replaceButton);
+
+function csvCell(value) {
+  const text = value == null ? "" : String(value);
+  if (/[",\r\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
+  return text;
+}
+
+function catalogFilename() {
+  const name = (document.querySelector("h1")?.textContent || "Catalog").trim().replace(/\s+/g, "_");
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${name}_${now.getFullYear()}${month}${day}.csv`;
+}
+
+function downloadInventory() {
+  const keys = ["component_id", "system_id", "purl"];
+  const lines = [COLUMNS.map(csvCell).join(",")];
+  storedItems.forEach((item) => {
+    lines.push(keys.map((key) => csvCell(item[key])).join(","));
+  });
+  const blob = new Blob([`${lines.join("\r\n")}\r\n`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = catalogFilename();
+  link.click();
+  URL.revokeObjectURL(url);
+}
 const fileInput = document.getElementById("file-input");
 const statusBox = document.getElementById("status");
 const reviewSection = document.getElementById("review");
@@ -46,7 +84,7 @@ function showTotalCount(count) {
     return;
   }
   totalCount.hidden = false;
-  totalCount.textContent = `Total Count: ${count}`;
+  totalCount.textContent = `Total Count: ${Number(count).toLocaleString()}`;
 }
 
 function showLastExtraction(extractedAt) {
@@ -106,7 +144,7 @@ function renderStoredRows() {
   const visible = visibleItems();
   const filtered = visible.length !== storedItems.length;
   inventoryCount.hidden = !filtered;
-  inventoryCount.textContent = filtered ? `Showing ${visible.length} of ${storedItems.length}` : "";
+  inventoryCount.textContent = filtered ? `Showing ${visible.length.toLocaleString()} of ${storedItems.length.toLocaleString()}` : "";
 
   currentPage = clampPage(visible.length, currentPage);
 
@@ -146,6 +184,7 @@ function showStoredLayout() {
   const hasInventory = storedItems.length > 0;
   uploadPanel.hidden = hasInventory;
   replaceButton.hidden = !hasInventory;
+  exportButton.hidden = !hasInventory;
   storedSection.hidden = !hasInventory;
   showTotalCount(hasInventory ? storedItems.length : 0);
   if (hasInventory) {
@@ -158,7 +197,7 @@ function showReview(rows) {
   const headRow = document.createElement("tr");
   ["Row", ...COLUMNS].forEach((label) => {
     const cell = document.createElement("th");
-    cell.textContent = label;
+    cell.textContent = label === "PURL" ? "Package URL" : label;
     headRow.appendChild(cell);
   });
   reviewHead.appendChild(headRow);
@@ -192,6 +231,7 @@ function showReview(rows) {
   const hasInventory = storedItems.length > 0;
   uploadPanel.hidden = hasInventory;
   replaceButton.hidden = !hasInventory;
+  exportButton.hidden = !hasInventory;
   storedSection.hidden = true;
   reviewSection.hidden = false;
 }
@@ -218,6 +258,7 @@ async function uploadFile(file) {
 
   uploadButton.disabled = true;
   replaceButton.disabled = true;
+  exportButton.disabled = true;
   setStatus("Saving inventory and scanning for vulnerabilities…", "success");
 
   try {
@@ -258,6 +299,7 @@ async function uploadFile(file) {
   } finally {
     uploadButton.disabled = false;
     replaceButton.disabled = false;
+    exportButton.disabled = false;
     fileInput.value = "";
   }
 }
@@ -285,6 +327,9 @@ filterControls.forEach((control) => {
 
 uploadButton.addEventListener("click", () => fileInput.click());
 replaceButton.addEventListener("click", () => fileInput.click());
+exportButton.addEventListener("click", () => {
+  if (storedItems.length) downloadInventory();
+});
 
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];

@@ -1,0 +1,52 @@
+const catalog = mountCatalog({
+  endpoint: "/controls",
+  deleteKeys: ["control_id"],
+  loadError: "The controls could not be loaded.",
+  reviewColumns: [
+    "Control ID", "Control", "Control Type", "ATT&CK Mitigations", "Reduces",
+    "Frequency Reduction (%)", "Magnitude Reduction (%)", "Status",
+    "Implementation Cost", "Annual Cost", "Owner OU ID", "Framework Reference", "Description",
+  ],
+  exportKeys: [
+    "control_id", "control", "control_type", "mitigations", "reduces",
+    "frequency_reduction_pct", "magnitude_reduction_pct", "status",
+    "implementation_cost", "annual_cost", "owner_ou_id", "framework_reference", "description",
+  ],
+  fields: [
+    { key: "control_id", label: "Control ID" },
+    { key: "control", label: "Control" },
+    { key: "control_type", label: "Type", options: ["Preventive", "Detective", "Corrective"] },
+    { key: "reduces", label: "Reduces", options: ["Frequency", "Magnitude", "Both"] },
+    { key: "status", label: "Status", options: ["Implemented", "Planned", "Not Implemented"] },
+    { key: "frequency_reduction_pct", label: "Frequency %" },
+    { key: "magnitude_reduction_pct", label: "Magnitude %" },
+    { key: "implementation_cost", label: "Implementation Cost (¤)", nullable: true },
+    { key: "annual_cost", label: "Annual Cost (¤)", nullable: true },
+  ],
+  onCreate: () => form.open(null),
+  onEdit: (item) => form.open(item),
+});
+
+const form = mountEntryForm({
+  catalog,
+  endpoint: "/controls/entry",
+  idKey: "control_id",
+  previousKey: "previous_control_id",
+  addTitle: "Add control",
+  editTitle: "Edit control",
+  fields: [
+    { name: "control_id", label: "Control ID", header: "Control ID" },
+    { name: "control", label: "Control", header: "Control" },
+    { name: "control_type", label: "Control Type", header: "Control Type", options: ["", "Preventive", "Detective", "Corrective"] },
+    { name: "mitigations", label: "ATT&CK Mitigations", header: "ATT&CK Mitigations" },
+    { name: "reduces", label: "Reduces", header: "Reduces", options: ["", "Frequency", "Magnitude", "Both"] },
+    { name: "frequency_reduction_pct", label: "Frequency Reduction (%)", header: "Frequency Reduction (%)", kind: "number" },
+    { name: "magnitude_reduction_pct", label: "Magnitude Reduction (%)", header: "Magnitude Reduction (%)", kind: "number" },
+    { name: "status", label: "Status", header: "Status", options: ["", "Implemented", "Planned", "Not Implemented"] },
+    { name: "implementation_cost", label: "Implementation Cost (¤)", header: "Implementation Cost", kind: "number" },
+    { name: "annual_cost", label: "Annual Cost (¤)", header: "Annual Cost", kind: "number" },
+    { name: "owner_ou_id", label: "Owner Organisational Unit ID", header: "Owner OU ID", choices: { endpoint: "/units", id: "ou_id", name: "organisational_unit" } },
+    { name: "framework_reference", label: "Framework Reference", header: "Framework Reference" },
+    { name: "description", label: "Description", header: "Description" },
+  ],
+});

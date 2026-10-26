@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
+  </head>
+  <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/">Home</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
+      </ul>
+    </nav>
+    <main class="page page-scenarios">
+      <header class="inventory-header">
+        <div class="hero"><h1>Risk Scenarios</h1><p id="last-extraction" class="last-extraction" hidden></p></div>
+        <button id="replace-button" type="button" class="inventory-replace" hidden>Upload New Catalog</button>
+      </header>
+      <section id="upload-panel" class="panel upload-panel">
+        <p class="upload-explanation">Upload a .csv or .xlsx file with these columns: Scenario ID, Scenario, Threat Actor ID, Attack Vector ID, Target Type, Target ID, Risk Owner Organisational Unit ID, Description, Status, Threat Event Frequency Min, Threat Event Frequency Mode, Threat Event Frequency Max, Threat Event Frequency Basis, Susceptibility Min, Susceptibility Mode, Susceptibility Max, Susceptibility Basis, Max Loss Events per Year, Frequency Lambda, Response Min, Response Mode, Response Max, Replacement Min, Replacement Mode, Replacement Max, Productivity Min, Productivity Mode, Productivity Max, Secondary Loss Probability, Fines Min, Fines Mode, Fines Max, Reputation Min, Reputation Mode, Reputation Max, Competitive Min, Competitive Mode, Competitive Max, Magnitude Basis, Magnitude Lambda, Evidence, and Calibration Notes.</p>
+        <p class="upload-explanation">Every numeric cell is required; a blank is rejected rather than stored as zero. Target Type is Software System or Business Process. Status is Draft, Reviewed, or Approved. Threat Event Frequency Basis, Susceptibility Basis, and Magnitude Basis are External, Internal, Expert, or Mixed. Frequency Lambda and Magnitude Lambda are from 1 to 10. Susceptibility and Secondary Loss Probability are from 0 to 1. Max Loss Events per Year must be greater than Threat Event Frequency Min multiplied by Susceptibility Min. Threat Actor ID, Attack Vector ID, Target ID, and Risk Owner Organisational Unit ID must already exist.</p>
+        <div id="dropzone" class="dropzone"><button id="upload-button" type="button">Upload file</button><p class="dropzone-hint">or drag and drop a file here</p></div>
+      </section>
+      <section id="status" class="status" hidden></section>
+      <section id="review" class="panel inventory-panel" hidden>
+        <h2>Entries that do not comply</h2>
+        <div class="table-wrap"><table class="inventory-table"><thead id="review-head"></thead><tbody id="review-body"></tbody></table></div>
+      </section>
+      <section id="stored" class="panel inventory-panel" hidden>
+        <div class="table-toolbar"><button id="add-button" type="button" class="inventory-replace add-button">+</button></div>
+        <p id="catalog-count" class="inventory-count" hidden></p>
+        <div class="table-wrap"><table class="inventory-table"><thead></thead><tbody id="stored-body"></tbody></table></div>
+        <div class="results-footer"><p id="total-count" class="last-extraction" hidden></p><nav id="stored-pager" class="pager" hidden></nav></div>
+        <section class="column-guide scenario-actions">
+          <h2>Suggest and Simulate</h2>
+          <div class="table-wrap">
+            <table class="inventory-table">
+              <thead>
+                <tr><th>Action</th><th>What happens</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Suggest</td>
+                  <td>Opens the form and fills it from the actor, attack vector, target, vulnerability findings, and Settings. The proposal table shows each number and its reason. A withheld row names the missing fields and keeps the current cell values. Save stores the worksheet.</td>
+                </tr>
+                <tr>
+                  <td>Simulate</td>
+                  <td>Opens the charts for 10,000 years of the saved worksheet, with Implemented controls and seed 1. The run reads that saved worksheet. A current control that eliminates the scenario refuses the run.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="suggestions" class="column-guide" hidden>
+          <h2 id="suggestion-title">Proposals</h2>
+          <p class="upload-explanation">Filled rows are copied into the open form. A triple is minimum / mode / maximum. A withheld row keeps the current values. Save stores the worksheet.</p>
+          <div class="table-wrap">
+            <table class="inventory-table">
+              <thead>
+                <tr><th>Factor</th><th>Proposal</th><th>Why</th></tr>
+              </thead>
+              <tbody id="suggestion-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+    <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
+    <div id="entry-modal" class="modal" hidden>
+      <form id="entry-form" class="modal-card panel">
+        <div class="modal-body">
+        <h2 id="entry-title"></h2>
+        <div id="entry-fields"></div>
+        </div>
+        <div class="modal-actions"><button id="entry-cancel" type="button" class="inventory-replace">Cancel</button><button id="entry-save" type="submit">Save</button></div>
+      </form>
+    </div>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="/js/shared/catalog.js?v=16"></script>
+    <script src="/js/risk/scenarios.js?v=9"></script>
+  </body>
+</html>

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Simulation Results | CRQ Monte Carlo</title>
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -14,11 +14,12 @@
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
         <li><a href="/organisational-units">Organisational Units</a></li>
-        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/software-systems">Software Systems</a></li>
+        <li><a href="/software-components">Software Components</a></li>
         <li><a href="/business-processes">Business Processes</a></li>
-        <li><a href="/component-inventory">Software Component Inventory</a></li>
         <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-        <li><a href="/monte-carlo">Manual Simulation</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
       </ul>
     </nav>
 
@@ -34,7 +35,7 @@
       <section id="empty-state" class="panel empty-state" hidden>
         <h2>No results yet</h2>
         <p>Run a simulation from the input page to view charts and export a PDF report.</p>
-        <a class="text-button" href="/monte-carlo">Go to simulator</a>
+        <a class="text-button" href="/risk-simulation">Go to simulator</a>
       </section>
 
       <section id="status" class="status" hidden></section>
@@ -43,7 +44,7 @@
         <div class="results-header">
           <h2>Simulation results</h2>
           <div class="results-actions">
-            <a class="text-button" href="/monte-carlo">New simulation</a>
+            <a class="text-button" href="/risk-simulation">New simulation</a>
             <button id="export-pdf-button" type="button" class="export-button">
               Export PDF
             </button>
@@ -77,13 +78,13 @@
           <div class="chart-grid two-up">
             <article class="distribution-card chart-card">
               <h4>Frequency histogram</h4>
-              <p class="chart-caption">Simulated annual event frequency, with P5, mean and P95 markers.</p>
+              <p class="chart-caption">Simulated annual event frequency, with 5th percentile, mean and 95th percentile markers.</p>
               <div id="frequency-chart" class="chart" role="img" aria-label="Frequency histogram"></div>
             </article>
 
             <article class="distribution-card chart-card">
               <h4>Magnitude histogram</h4>
-              <p class="chart-caption">Simulated loss per event, with P5, mean and P95 markers.</p>
+              <p class="chart-caption">Simulated loss per event, with 5th percentile, mean and 95th percentile markers.</p>
               <div id="magnitude-chart" class="chart" role="img" aria-label="Magnitude histogram"></div>
             </article>
           </div>
@@ -96,7 +97,7 @@
           <div class="chart-grid">
             <article class="distribution-card chart-card">
               <h4>Aggregate loss histogram</h4>
-              <p class="chart-caption">Annual loss across all simulations, with mean and tail-risk (VaR / TVaR) markers.</p>
+              <p class="chart-caption">Annual loss across all simulations, with mean and tail-risk (Value at Risk / Tail Value at Risk) markers.</p>
               <div id="aggregate-loss-chart" class="chart" role="img" aria-label="Aggregate loss histogram"></div>
             </article>
 
@@ -135,7 +136,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script src="menu.js?v=2"></script>
-    <script src="result.js?v=7"></script>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/risk/result.js?v=10"></script>
   </body>
 </html>

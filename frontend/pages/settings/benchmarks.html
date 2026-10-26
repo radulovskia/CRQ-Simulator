@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
+  </head>
+  <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/">Home</a></li>
+        <li><a href="/organisational-units">Organisational Units</a></li>
+        <li><a href="/software-systems">Software Systems</a></li>
+        <li><a href="/software-components">Software Components</a></li>
+        <li><a href="/business-processes">Business Processes</a></li>
+        <li><a href="/vulnerability-database">Vulnerability Database</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
+      </ul>
+    </nav>
+    <main class="page page-wide">
+      <header class="hero">
+        <h1>Settings</h1>
+        <p class="subtitle">These benchmarks are used the next time Suggest runs. A saved scenario keeps the numbers on its worksheet.</p>
+      </header>
+      <section id="status" class="status" hidden></section>
+      <form id="benchmark-form">
+        <div id="benchmark-fields"></div>
+        <fieldset class="benchmark-group">
+          <legend>Change record</legend>
+          <p class="benchmark-note">Benchmarks version and last modified are set from the time of each save. Last modified by is the name entered here. The version is stamped on the risk register, new board reports, and new decision records.</p>
+          <div class="field-row">
+            <div class="field">
+              <span>Benchmarks version</span>
+              <p id="benchmark-version" class="benchmark-note">2026.10</p>
+            </div>
+            <div class="field">
+              <span>Last modified</span>
+              <p id="updated-at" class="benchmark-note">Not yet saved</p>
+            </div>
+          </div>
+          <label class="field">Last modified by
+            <input id="updated-by" type="text" autocomplete="name" />
+            <span class="field-error" data-error="updated_by" hidden></span>
+          </label>
+          <div class="settings-actions">
+            <button id="save-button" type="submit">Save</button>
+          </div>
+        </fieldset>
+      </form>
+      <div id="confirm-modal" class="modal" hidden>
+        <div class="modal-card panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <div class="modal-body">
+            <h2 id="confirm-title">Do you want to save these modifications?</h2>
+            <ul id="confirm-changes" class="benchmark-changes"></ul>
+          </div>
+          <div class="modal-actions">
+            <button id="confirm-cancel" type="button" class="inventory-replace">Cancel</button>
+            <button id="confirm-ok" type="button">OK</button>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/settings/benchmarks.js?v=7"></script>
+  </body>
+</html>

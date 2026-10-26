@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cyber Risk Quantification Engine</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <title>LoadLine</title>
+  <link rel="stylesheet" href="/css/styles.css?v=64" />
 </head>
 
 <body class="home">
@@ -16,19 +16,64 @@
     </button>
     <ul id="menu-panel" class="menu-panel" hidden>
       <li><a href="/organisational-units">Organisational Units</a></li>
-      <li><a href="/software-systems">Software Systems Catalog</a></li>
+      <li><a href="/software-systems">Software Systems</a></li>
+      <li><a href="/software-components">Software Components</a></li>
       <li><a href="/business-processes">Business Processes</a></li>
-      <li><a href="/component-inventory">Software Component Inventory</a></li>
       <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-      <li><a href="/monte-carlo">Manual Simulation</a></li>
+      <li><a href="/risk-simulation">Risk Simulation</a></li>
+      <li class="menu-settings"><a href="/settings">Settings</a></li>
     </ul>
   </nav>
 
   <main class="landing">
-    <h1>Cyber Risk Quantification Engine</h1>
+    <div class="landing-lockup">
+      <svg class="landing-mark" viewBox="6.2 6.2 87.6 87.6" aria-hidden="true" focusable="false"
+        xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="butt">
+          <circle cx="50" cy="50" r="30" />
+        </g>
+        <!-- Background gaps above and below the center line, where it meets the circle -->
+        <g fill="none" stroke="#0f172a" stroke-width="10" stroke-linecap="butt">
+          <line x1="8.3" y1="46.15" x2="91.7" y2="46.15" />
+          <line x1="8.3" y1="53.85" x2="91.7" y2="53.85" />
+        </g>
+        <!-- Same outer width as the circle, centered on its diameter -->
+        <line x1="8.3" y1="50" x2="91.7" y2="50" fill="none" stroke="currentColor" stroke-width="5"
+          stroke-linecap="butt" />
+      </svg>
+      <div class="landing-copy">
+        <h1 class="landing-word">LoadLine</h1>
+        <p class="landing-tagline">Cyber Risk Quantification Engine</p>
+      </div>
+    </div>
   </main>
 
-  <script src="menu.js?v=2"></script>
+  <script src="/js/shared/menu.js?v=13"></script>
+  <script>
+    (() => {
+      const word = document.querySelector(".landing-word");
+      const tag = document.querySelector(".landing-tagline");
+      if (!word || !tag) return;
+
+      const inkShift = (el) => {
+        const cs = getComputedStyle(el);
+        const ctx = document.createElement("canvas").getContext("2d");
+        ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const measured = ctx.measureText(el.textContent);
+        const left = measured.actualBoundingBoxLeft || 0;
+        const right = measured.actualBoundingBoxRight ?? measured.width;
+        const inkCenter = (right - left) / 2;
+        return inkCenter - measured.width / 2;
+      };
+
+      const align = () => {
+        tag.style.transform = `translateX(${inkShift(word) - inkShift(tag)}px)`;
+      };
+
+      align();
+      window.addEventListener("resize", align);
+    })();
+  </script>
 </body>
 
 </html>

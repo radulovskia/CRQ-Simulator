@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CRQ Monte Carlo Simulator</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <title>LoadLine</title>
+  <link rel="stylesheet" href="/css/styles.css?v=64" />
 </head>
 
 <body>
@@ -17,21 +17,25 @@
     <ul id="menu-panel" class="menu-panel" hidden>
       <li><a href="/">Home</a></li>
       <li><a href="/organisational-units">Organisational Units</a></li>
-      <li><a href="/software-systems">Software Systems Catalog</a></li>
+      <li><a href="/software-systems">Software Systems</a></li>
+      <li><a href="/software-components">Software Components</a></li>
       <li><a href="/business-processes">Business Processes</a></li>
-      <li><a href="/component-inventory">Software Component Inventory</a></li>
       <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-      <li><a href="/monte-carlo">Manual Simulation</a></li>
+      <li><a href="/risk-simulation">Risk Simulation</a></li>
+      <li class="menu-settings"><a href="/settings">Settings</a></li>
     </ul>
   </nav>
 
   <main class="page">
-    <header class="hero">
-      <p class="eyebrow">Beta PERT distribution</p>
-      <h1>Monte Carlo Simulator</h1>
-      <p class="subtitle">
-        Model frequency and magnitude with separate three-point estimates, then run a shared Monte Carlo simulation.
-      </p>
+    <header class="inventory-header">
+      <div class="hero">
+        <p class="eyebrow">Beta PERT distribution</p>
+        <h1>Monte Carlo Simulator</h1>
+        <p class="subtitle">
+          Model frequency and magnitude with separate three-point estimates, then run a shared Monte Carlo simulation.
+        </p>
+      </div>
+      <button id="run-button" type="submit" form="simulation-form">Run Simulation</button>
     </header>
 
     <section class="panel">
@@ -89,6 +93,26 @@
         </fieldset>
 
         <fieldset class="variable-group">
+          <legend>Scenario</legend>
+          <div class="form-grid">
+            <div class="field">
+              <label for="scenario_id">Load a risk scenario</label>
+              <select id="scenario_id" name="scenario_id">
+                <option value="">Manual entry</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="control_set">Control set</label>
+              <select id="control_set" name="control_set">
+                <option value="current">Current</option>
+                <option value="inherent">Inherent</option>
+                <option value="target">Target</option>
+              </select>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="variable-group">
           <legend>Simulation settings</legend>
           <div class="form-grid">
             <div class="field">
@@ -101,10 +125,6 @@
               <label for="seed">Seed (optional)</label>
               <input id="seed" name="seed" type="number" step="1" placeholder="Random" />
             </div>
-
-            <div class="actions">
-              <button id="run-button" type="submit">Run simulation</button>
-            </div>
           </div>
         </fieldset>
       </form>
@@ -113,8 +133,8 @@
     <section id="status" class="status" hidden></section>
   </main>
 
-  <script src="menu.js?v=2"></script>
-  <script src="form.js?v=2"></script>
+  <script src="/js/shared/menu.js?v=13"></script>
+  <script src="/js/risk/form.js?v=4"></script>
 </body>
 
 </html>

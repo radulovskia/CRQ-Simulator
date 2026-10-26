@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=65" />
+  </head>
+  <body>
+    <nav class="floating-menu" aria-label="Main menu">
+      <button id="menu-toggle" type="button" class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+      <ul id="menu-panel" class="menu-panel" hidden>
+        <li><a href="/">Home</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
+      </ul>
+    </nav>
+    <main class="page page-wide">
+      <header class="inventory-header">
+        <div class="hero">
+          <h1>MITRE ATT&CK</h1>
+          <p id="dataset-meta" class="last-extraction" hidden></p>
+        </div>
+        <button id="check-button" type="button" class="inventory-replace">Check for Updates</button>
+      </header>
+      <section id="status" class="status" hidden></section>
+      <section id="browser" class="panel inventory-panel" hidden>
+        <div id="type-switch" class="mitre-types" role="group" aria-label="ATT&CK object types"></div>
+        <div class="mitre-toolbar">
+          <input id="search" class="mitre-search" type="search" placeholder="Search MITRE ATT&CK Database" aria-label="Search MITRE ATT&CK Database" />
+          <button id="show-deprecated" type="button" aria-pressed="false">Show deprecated</button>
+        </div>
+        <p id="result-count" class="inventory-count" hidden></p>
+        <div class="table-wrap">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="external_id">Identifier<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="name">Name<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none">
+                  <span class="details-heading">
+                    <button type="button" class="sort-button" data-field="details">Details<span class="sort-indicator" aria-hidden="true"></span></button>
+                    <span id="category-filter" class="category-filter" hidden>
+                      <button id="category-toggle" type="button" class="category-toggle" aria-label="Filter Details" aria-expanded="false" aria-controls="category-menu"></button>
+                      <ul id="category-menu" class="category-menu" role="menu" hidden></ul>
+                    </span>
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="mitre-body"></tbody>
+          </table>
+        </div>
+        <div class="results-footer">
+          <nav id="mitre-pager" class="pager" aria-label="ATT&CK pages" hidden></nav>
+        </div>
+      </section>
+    </main>
+    <div id="detail-modal" class="modal" hidden>
+      <div class="modal-card panel" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <div class="modal-body">
+        <div id="detail" class="mitre-detail"></div>
+        </div>
+        <div class="modal-actions"><button id="detail-close" type="button" class="inventory-replace">Close</button></div>
+      </div>
+    </div>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="/js/intelligence/mitre.js?v=11"></script>
+  </body>
+</html>

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Business Processes</title>
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <title>LoadLine</title>
+    <link rel="stylesheet" href="/css/styles.css?v=64" />
   </head>
   <body>
     <nav class="floating-menu" aria-label="Main menu">
@@ -14,15 +14,16 @@
       <ul id="menu-panel" class="menu-panel" hidden>
         <li><a href="/">Home</a></li>
         <li><a href="/organisational-units">Organisational Units</a></li>
-        <li><a href="/software-systems">Software Systems Catalog</a></li>
+        <li><a href="/software-systems">Software Systems</a></li>
+        <li><a href="/software-components">Software Components</a></li>
         <li><a href="/business-processes">Business Processes</a></li>
-        <li><a href="/component-inventory">Software Component Inventory</a></li>
         <li><a href="/vulnerability-database">Vulnerability Database</a></li>
-        <li><a href="/monte-carlo">Manual Simulation</a></li>
+        <li><a href="/risk-simulation">Risk Simulation</a></li>
+        <li class="menu-settings"><a href="/settings">Settings</a></li>
       </ul>
     </nav>
 
-    <main class="page page-wide">
+    <main class="page page-wide page-processes">
       <header class="inventory-header">
         <div class="hero">
           <h1>Business Processes</h1>
@@ -33,7 +34,7 @@
 
       <section id="upload-panel" class="panel upload-panel">
         <p class="upload-explanation">
-          Upload a .csv or .xlsx file containing the following columns: BP ID, OU ID, Business Process, Activity/Scope, Primary System IDs, Criticality, and Key Information. Ensure all columns are included and correctly formatted.
+          Upload a .csv or .xlsx file with columns Business Process ID, Organisational Unit ID, Business Process, Activity/Scope, Primary System IDs, Criticality, Key Information, Recovery Time Objective (hours), Downtime Cost per Hour before Recovery Time Objective, Downtime Cost per Hour post Recovery Time Objective, and Full-Time Equivalent Count. A blank before-objective cost, recovery time objective, or full-time equivalent count means Unknown. A blank post-objective cost uses the before-objective cost.
         </p>
         <div id="dropzone" class="dropzone">
           <button id="upload-button" type="button">Upload file</button>
@@ -63,21 +64,25 @@
           <table class="inventory-table">
             <thead>
               <tr>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="bp_id">BP ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="bp_id">Business Process ID<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="organisational_unit">Organisational Unit<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="business_process">Business Process<span class="sort-indicator" aria-hidden="true"></span></button></th>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="activity_scope">Activity/Scope<span class="sort-indicator" aria-hidden="true"></span></button></th>
-                <th aria-sort="none"><button type="button" class="sort-button" data-field="software_systems">Software System<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="col-activity" aria-sort="none"><button type="button" class="sort-button" data-field="activity_scope">Activity/Scope<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th class="is-hidden" aria-sort="none"><button type="button" class="sort-button" data-field="software_systems">Software System<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="criticality">Criticality<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th aria-sort="none"><button type="button" class="sort-button" data-field="key_information">Key Information<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="rto_hours">Recovery Time Objective (hours)<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="downtime_cost_per_hour">Downtime Cost per Hour before Recovery Time Objective (¤)<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="downtime_cost_post_rto_effective">Downtime Cost per Hour post Recovery Time Objective (¤)<span class="sort-indicator" aria-hidden="true"></span></button></th>
+                <th aria-sort="none"><button type="button" class="sort-button" data-field="fte_count">Full-Time Equivalent Count<span class="sort-indicator" aria-hidden="true"></span></button></th>
                 <th class="edit-heading"><span class="visually-hidden">Edit</span></th>
               </tr>
               <tr class="filter-row">
-                <th><input type="search" data-field="bp_id" aria-label="Filter BP ID" placeholder="Filter" /></th>
+                <th><input type="search" data-field="bp_id" aria-label="Filter Business Process ID" placeholder="Filter" /></th>
                 <th><input type="search" data-field="organisational_unit" aria-label="Filter Organisational Unit" placeholder="Filter" /></th>
                 <th><input type="search" data-field="business_process" aria-label="Filter Business Process" placeholder="Filter" /></th>
-                <th><input type="search" data-field="activity_scope" aria-label="Filter Activity/Scope" placeholder="Filter" /></th>
-                <th><input type="search" data-field="software_systems" aria-label="Filter Software System" placeholder="Filter" /></th>
+                <th class="col-activity"><input type="search" data-field="activity_scope" aria-label="Filter Activity/Scope" placeholder="Filter" /></th>
+                <th class="is-hidden"><input type="search" data-field="software_systems" aria-label="Filter Software System" placeholder="Filter" /></th>
                 <th>
                   <select data-field="criticality" aria-label="Filter Criticality">
                     <option value="">All</option>
@@ -87,6 +92,10 @@
                   </select>
                 </th>
                 <th><input type="search" data-field="key_information" aria-label="Filter Key Information" placeholder="Filter" /></th>
+                <th><input type="search" data-field="rto_hours" aria-label="Filter Recovery Time Objective" placeholder="Filter" /></th>
+                <th><input type="search" data-field="downtime_cost_per_hour" aria-label="Filter Downtime Cost before Recovery Time Objective" placeholder="Filter" /></th>
+                <th><input type="search" data-field="downtime_cost_post_rto_effective" aria-label="Filter Downtime Cost post Recovery Time Objective" placeholder="Filter" /></th>
+                <th><input type="search" data-field="fte_count" aria-label="Filter Full-Time Equivalent Count" placeholder="Filter" /></th>
                 <th></th>
               </tr>
             </thead>
@@ -103,9 +112,10 @@
     <input id="file-input" type="file" accept=".csv,.xlsx" hidden />
 
     <div id="entry-modal" class="modal" hidden>
-      <form id="entry-form" class="modal-card panel">
+      <form id="entry-form" class="modal-card modal-wide panel">
+        <div class="modal-body">
         <h2 id="entry-title">Add business process</h2>
-        <label class="field">BP ID<input id="field-bp-id" type="text" autocomplete="off" /><span id="error-bp-id" class="field-error" hidden></span></label>
+        <label class="field">Business Process ID<input id="field-bp-id" type="text" autocomplete="off" /><span id="error-bp-id" class="field-error" hidden></span></label>
         <label class="field">Organisational Unit<select id="field-ou"></select><span id="error-ou" class="field-error" hidden></span></label>
         <label class="field">Business Process<input id="field-business-process" type="text" autocomplete="off" /><span id="error-business-process" class="field-error" hidden></span></label>
         <label class="field">Activity/Scope<input id="field-activity-scope" type="text" autocomplete="off" /><span id="error-activity-scope" class="field-error" hidden></span></label>
@@ -120,6 +130,18 @@
           <span id="error-criticality" class="field-error" hidden></span>
         </label>
         <label class="field">Key Information<input id="field-key-information" type="text" autocomplete="off" /><span id="error-key-information" class="field-error" hidden></span></label>
+        <div class="downtime-pair">
+          <label class="downtime-before-label" for="field-downtime">Downtime Cost per Hour before Recovery Time Objective (¤)</label>
+          <label class="downtime-post-label" for="field-downtime-post">Downtime Cost per Hour post Recovery Time Objective (¤)</label>
+          <input id="field-downtime" class="downtime-before-input" type="number" step="any" min="0" />
+          <input id="field-downtime-post" class="downtime-post-input" type="number" step="any" min="0" />
+          <span id="error-downtime" class="field-error downtime-before-error" hidden></span>
+          <span id="error-downtime-post" class="field-error downtime-post-error" hidden></span>
+          <span class="field-hint">Blank uses the before-objective cost.</span>
+        </div>
+        <label class="field">Recovery Time Objective (hours)<input id="field-rto" type="number" step="any" min="0" /><span id="error-rto" class="field-error" hidden></span></label>
+        <label class="field">Full-Time Equivalent Count<input id="field-fte" type="number" step="any" min="0" /><span id="error-fte" class="field-error" hidden></span></label>
+        </div>
         <div class="modal-actions">
           <button id="entry-cancel" type="button" class="inventory-replace">Cancel</button>
           <button id="entry-save" type="submit">Save</button>
@@ -127,9 +149,9 @@
       </form>
     </div>
 
-    <script src="menu.js?v=2"></script>
-    <script src="pagination.js?v=1"></script>
-    <script src="catalog.js?v=1"></script>
-    <script src="processes.js?v=5"></script>
+    <script src="/js/shared/menu.js?v=13"></script>
+    <script src="/js/shared/pagination.js?v=1"></script>
+    <script src="/js/shared/catalog.js?v=14"></script>
+    <script src="/js/inventory/processes.js?v=11"></script>
   </body>
 </html>

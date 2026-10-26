@@ -1,0 +1,60 @@
+const yesNo = ["", "Yes", "No"];
+const catalog = mountCatalog({
+  endpoint: "/vectors",
+  deleteKeys: ["vector_id"],
+  loadError: "The attack vectors could not be loaded.",
+  reviewColumns: [
+    "Vector ID", "Attack Vector", "ATT&CK Technique Chain", "Terminal Tactic", "Loss Event Type",
+    "Requires Exploitable Vulnerability", "Requires Internet Facing", "ATT&CK Mitigations",
+    "Base TEF Min", "Base TEF Mode", "Base TEF Max",
+    "Base Susceptibility Min", "Base Susceptibility Mode", "Base Susceptibility Max",
+    "Typical Outage Hours Min", "Typical Outage Hours Mode", "Typical Outage Hours Max", "Reference",
+  ],
+  exportKeys: [
+    "vector_id", "attack_vector", "technique_chain", "terminal_tactic", "loss_event_type",
+    "requires_vulnerability", "requires_internet_facing", "mitigations",
+    "base_tef_min", "base_tef_mode", "base_tef_max",
+    "base_susceptibility_min", "base_susceptibility_mode", "base_susceptibility_max",
+    "outage_hours_min", "outage_hours_mode", "outage_hours_max", "reference",
+  ],
+  fields: [
+    { key: "vector_id", label: "Vector ID" },
+    { key: "attack_vector", label: "Attack Vector" },
+    { key: "loss_event_type", label: "Loss Event Type", options: ["Availability", "Confidentiality", "Integrity", "Fraud"] },
+    { key: "terminal_tactic", label: "Terminal Tactic", options: ["Impact", "Exfiltration", "Collection"] },
+    { key: "requires_vulnerability", label: "Requires Vulnerability", options: ["Yes", "No"] },
+    { key: "requires_internet_facing", label: "Requires Internet Facing", options: ["Yes", "No"] },
+  ],
+  onCreate: () => form.open(null),
+  onEdit: (item) => form.open(item),
+});
+
+const number = (name, label, header) => ({ name, label, header, kind: "number" });
+const form = mountEntryForm({
+  catalog,
+  endpoint: "/vectors/entry",
+  idKey: "vector_id",
+  previousKey: "previous_vector_id",
+  addTitle: "Add attack vector",
+  editTitle: "Edit attack vector",
+  fields: [
+    { name: "vector_id", label: "Vector ID", header: "Vector ID" },
+    { name: "attack_vector", label: "Attack Vector", header: "Attack Vector" },
+    { name: "technique_chain", label: "ATT&CK Technique Chain", header: "ATT&CK Technique Chain" },
+    { name: "terminal_tactic", label: "Terminal Tactic", header: "Terminal Tactic", options: ["", "Impact", "Exfiltration", "Collection"] },
+    { name: "loss_event_type", label: "Loss Event Type", header: "Loss Event Type", options: ["", "Availability", "Confidentiality", "Integrity", "Fraud"] },
+    { name: "requires_vulnerability", label: "Requires Exploitable Vulnerability", header: "Requires Exploitable Vulnerability", options: yesNo },
+    { name: "requires_internet_facing", label: "Requires Internet Facing", header: "Requires Internet Facing", options: yesNo },
+    { name: "mitigations", label: "ATT&CK Mitigations", header: "ATT&CK Mitigations" },
+    number("base_tef_min", "Base Threat Event Frequency Min", "Base TEF Min"),
+    number("base_tef_mode", "Base Threat Event Frequency Mode", "Base TEF Mode"),
+    number("base_tef_max", "Base Threat Event Frequency Max", "Base TEF Max"),
+    number("base_susceptibility_min", "Base Susceptibility Min", "Base Susceptibility Min"),
+    number("base_susceptibility_mode", "Base Susceptibility Mode", "Base Susceptibility Mode"),
+    number("base_susceptibility_max", "Base Susceptibility Max", "Base Susceptibility Max"),
+    number("outage_hours_min", "Typical Outage Hours Min", "Typical Outage Hours Min"),
+    number("outage_hours_mode", "Typical Outage Hours Mode", "Typical Outage Hours Mode"),
+    number("outage_hours_max", "Typical Outage Hours Max", "Typical Outage Hours Max"),
+    { name: "reference", label: "Reference", header: "Reference" },
+  ],
+});

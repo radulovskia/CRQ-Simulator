@@ -6,6 +6,10 @@ const FIELD_ERRORS = {
   "Primary System IDs": "error-systems",
   Criticality: "error-criticality",
   "Key Information": "error-key-information",
+  "Downtime Cost per Hour before RTO": "error-downtime",
+  "Downtime Cost per Hour post RTO": "error-downtime-post",
+  "RTO (hours)": "error-rto",
+  "FTE Count": "error-fte",
 };
 
 const entryModal = document.getElementById("entry-modal");
@@ -17,17 +21,23 @@ let previousId = null;
 
 const catalog = mountCatalog({
   endpoint: "/processes",
+  deleteKeys: ["bp_id"],
   loadError: "The business process catalog could not be loaded.",
-  reviewColumns: ["BP ID", "OU ID", "Business Process", "Activity/Scope", "Primary System IDs", "Criticality", "Key Information"],
+  reviewColumns: ["BP ID", "OU ID", "Business Process", "Activity/Scope", "Primary System IDs", "Criticality", "Key Information", "RTO (hours)", "Downtime Cost per Hour before RTO", "Downtime Cost per Hour post RTO", "FTE Count"],
+  exportKeys: ["bp_id", "ou_id", "business_process", "activity_scope", "primary_system_ids", "criticality", "key_information", "rto_hours", "downtime_cost_per_hour", "downtime_cost_per_hour_post_rto", "fte_count"],
   ranks: { criticality: { Low: 0, Medium: 1, High: 2 } },
   fields: [
     { key: "bp_id" },
     { key: "organisational_unit" },
     { key: "business_process" },
-    { key: "activity_scope" },
-    { key: "software_systems" },
+    { key: "activity_scope", className: "col-activity" },
+    { key: "software_systems", className: "is-hidden" },
     { key: "criticality" },
     { key: "key_information" },
+    { key: "rto_hours", nullable: true },
+    { key: "downtime_cost_per_hour", nullable: true },
+    { key: "downtime_cost_post_rto_effective", nullable: true },
+    { key: "fte_count", nullable: true },
   ],
   onCreate: () => openForm(null),
   onEdit: (item) => openForm(item),
@@ -71,6 +81,10 @@ async function openForm(item) {
   });
   document.getElementById("field-criticality").value = item?.criticality ?? "";
   document.getElementById("field-key-information").value = item?.key_information ?? "";
+  document.getElementById("field-downtime").value = item?.downtime_cost_per_hour ?? "";
+  document.getElementById("field-downtime-post").value = item?.downtime_cost_per_hour_post_rto ?? "";
+  document.getElementById("field-rto").value = item?.rto_hours ?? "";
+  document.getElementById("field-fte").value = item?.fte_count ?? "";
   entryModal.hidden = false;
   document.getElementById("field-bp-id").focus();
 }
@@ -89,7 +103,16 @@ function formValues() {
     primary_system_ids: selectedValues(systemSelect).join(", "),
     criticality: document.getElementById("field-criticality").value,
     key_information: document.getElementById("field-key-information").value.trim(),
+    downtime_cost_per_hour: optionalNumber("field-downtime"),
+    downtime_cost_per_hour_post_rto: optionalNumber("field-downtime-post"),
+    rto_hours: optionalNumber("field-rto"),
+    fte_count: optionalNumber("field-fte"),
   };
+}
+
+function optionalNumber(id) {
+  const raw = document.getElementById(id).value.trim();
+  return raw === "" ? null : Number(raw);
 }
 
 async function saveForm(event) {
@@ -97,7 +120,7 @@ async function saveForm(event) {
   const values = formValues();
   const errors = {};
   if (!values.bp_id) errors["BP ID"] = "must not be empty";
-  if (!values.ou_id) errors["OU ID"] = "must be an existing OU ID";
+  if (!values.ou_id) errors["OU ID"] = "must be an existing organisational unit";
   if (!values.business_process) errors["Business Process"] = "must not be empty";
   if (!values.activity_scope) errors["Activity/Scope"] = "must not be empty";
   if (!values.primary_system_ids) errors["Primary System IDs"] = "must not be empty";

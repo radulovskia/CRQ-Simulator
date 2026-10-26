@@ -54,6 +54,45 @@ function formatApiError(payload, statusCode) {
   return `Request failed with status ${statusCode}.`;
 }
 
+const scenarioSelect = document.getElementById("scenario_id");
+const controlSet = document.getElementById("control_set");
+
+async function loadScenarios() {
+  if (!scenarioSelect) return;
+  const response = await fetch("/scenarios");
+  if (!response.ok) return;
+  const data = await response.json();
+  (data.items || []).forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.scenario_id;
+    option.textContent = `${item.scenario_id} — ${item.scenario}`;
+    scenarioSelect.appendChild(option);
+  });
+}
+
+async function applyScenario() {
+  if (!scenarioSelect?.value) return;
+  const response = await fetch(`/scenarios/${scenarioSelect.value}/inputs?control_set=${controlSet.value}`);
+  const data = await response.json();
+  if (!response.ok) {
+    setStatus(data.detail || "The scenario inputs could not be loaded.", "error");
+    return;
+  }
+  document.getElementById("frequency_minimum").value = data.frequency.minimum;
+  document.getElementById("frequency_mode").value = data.frequency.mode;
+  document.getElementById("frequency_maximum").value = data.frequency.maximum;
+  document.getElementById("frequency_lambda").value = data.frequency.lambda;
+  document.getElementById("magnitude_minimum").value = data.magnitude.minimum;
+  document.getElementById("magnitude_mode").value = data.magnitude.mode;
+  document.getElementById("magnitude_maximum").value = data.magnitude.maximum;
+  document.getElementById("magnitude_lambda").value = data.magnitude.lambda;
+  clearStatus();
+}
+
+scenarioSelect?.addEventListener("change", applyScenario);
+controlSet?.addEventListener("change", applyScenario);
+loadScenarios();
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearStatus();
@@ -104,6 +143,6 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     setStatus(error.message || "Simulation failed.", "error");
     runButton.disabled = false;
-    runButton.textContent = "Run simulation";
+    runButton.textContent = "Run Simulation";
   }
 });
