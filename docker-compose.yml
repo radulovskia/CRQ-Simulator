@@ -20,6 +20,7 @@ services:
     environment:
       DATABASE_URL: postgresql://crq:crq@postgres:5432/crq
       VULNERABILITY_DATABASE_URL: postgresql://crq:crq@postgres:5432/vulnerabilities
+      MITRE_DATABASE_URL: postgresql://crq:crq@postgres:5432/mitre_enterprise
     ports:
       - "8000:8000"
     depends_on:
