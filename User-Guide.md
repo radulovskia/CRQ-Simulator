@@ -635,7 +635,7 @@ The approval threshold does not change a loss and it does not change which contr
 
 ### Investment analysis
 
-This panel ranks controls you might buy. A candidate must be Planned or Not Implemented, and it must appear on at least one mapping. Implemented controls are already in the current loss, so they are not candidates.
+This panel ranks controls you might buy. A candidate must be Planned or Not Implemented, and it must be mapped to at least one scenario that is not a draft. Implemented controls are already in the current loss, so they are not candidates.
 
 For each costed candidate the table shows:
 
@@ -643,7 +643,7 @@ For each costed candidate the table shows:
 |---|---|
 | Control | The Control ID. |
 | Annualised cost | Annual cost plus implementation cost divided by amortisation years. |
-| Reduction | How much analytic annual loss falls if this control is added on its own, on top of the controls that are already Implemented. The sum runs over every scenario, including drafts. |
+| Reduction | How much analytic annual loss falls if this control is added on its own, on top of the controls that are already Implemented. The sum runs over the mapped scenarios that are not drafts. A reduction on a draft is ignored. |
 | Benefit-Cost Ratio | Reduction divided by annualised cost. |
 | Return on Security Investment | (Reduction − annualised cost) divided by annualised cost. |
 | Net benefit | Reduction minus annualised cost. |

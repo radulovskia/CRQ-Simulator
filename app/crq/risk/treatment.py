@@ -148,13 +148,16 @@ def build_treatments(iterations: int, seed: int, register: dict | None = None) -
     years = appetite["amortisation_years"] or 3
     contexts = [item["context"] for item in register["items"]]
     baseline = {item["scenario_id"]: item["analytic_ale"]["current"] for item in register["items"]}
+    # Draft scenarios are outside the portfolio, so no reduction on a draft counts when a control is evaluated.
+    scored = [context for context in contexts if in_appetite_test(context["scenario"]["status"])]
+    scored_baseline_total = sum(baseline[context["scenario"]["scenario_id"]] for context in scored)
     cache = {}
     for context in contexts:
         cache[(context["scenario"]["scenario_id"], tuple(_ids_for(context, set())))] = baseline[context["scenario"]["scenario_id"]]
 
     catalog = {}
     scenario_map = {}
-    for context in contexts:
+    for context in scored:
         for mapping in context["mappings"]:
             if mapping["status"] not in ("Planned", "Not Implemented"):
                 continue
@@ -167,7 +170,7 @@ def build_treatments(iterations: int, seed: int, register: dict | None = None) -
         annualised = _annualised(mapping, years)
         per_scenario = []
         reduction = 0.0
-        for context in contexts:
+        for context in scored:
             if context["scenario"]["scenario_id"] not in scenario_map[control_id]:
                 continue
             before = baseline[context["scenario"]["scenario_id"]]
@@ -203,13 +206,13 @@ def build_treatments(iterations: int, seed: int, register: dict | None = None) -
         else:
             candidates.append(record)
 
-    plan = _optimise(candidates, contexts, baseline, appetite["annual_treatment_budget"], cache)
+    plan = _optimise(candidates, scored, baseline, appetite["annual_treatment_budget"], cache)
     selected_ids = [item["control_id"] for item in plan["selected"]]
     selected_set = set(selected_ids)
     total_annualised = sum(item["annualised_cost"] for item in plan["selected"])
     total_first_year = sum((item["implementation_cost"] or 0) + (item["annual_cost"] or 0) for item in plan["selected"])
-    expected_reduction = _combined_reduction(contexts, baseline, selected_set, cache) if contexts else 0.0
-    residual = sum(baseline.values()) - expected_reduction
+    expected_reduction = _combined_reduction(scored, baseline, selected_set, cache) if scored else 0.0
+    residual = scored_baseline_total - expected_reduction
 
     recommended_samples = []
     for ordinal, context in enumerate(contexts):
@@ -233,8 +236,7 @@ def build_treatments(iterations: int, seed: int, register: dict | None = None) -
         "portfolio_ale": appetite_status(recommended_summary["mean"], appetite["portfolio_ale_limit"]),
         "portfolio_var_95": appetite_status(recommended_summary["var_95"], appetite["portfolio_var95_limit"]),
     }
-    appetite_contexts = [context for context in contexts if in_appetite_test(context["scenario"]["status"])]
-    reach = _reach(candidates, appetite_contexts, baseline, appetite, cache)
+    reach = _reach(candidates, scored, baseline, appetite, cache)
     if appetite["annual_treatment_budget"] is None and reach["computed"]:
         reach["within_budget"] = None
 
@@ -359,7 +361,7 @@ def build_treatments(iterations: int, seed: int, register: dict | None = None) -
         },
         "baseline": {
             "control_set": "current",
-            "analytic_ale": sum(baseline.values()) if baseline else 0.0,
+            "analytic_ale": scored_baseline_total,
             "simulated": {
                 "mean": current_portfolio["mean"],
                 "var_95": current_portfolio["var_95"],
