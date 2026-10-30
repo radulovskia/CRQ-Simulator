@@ -4,28 +4,79 @@ LoadLine is a cyber risk quantification workspace. You describe the organisation
 
 The estimates follow FAIR in plain terms: how often a threat actor tries something, how often that attempt succeeds, and how much a successful event costs. Expert judgment is stored as a minimum, a most likely value, and a maximum. A simulation turns those three numbers into a spread of possible years.
 
-This guide is the operating manual. Each screen section tells you what to enter, what LoadLine does with it, and what to check before you move on.
+This guide is the operating manual. It tells you, screen by screen, what to enter, what LoadLine does with it, and what to check before you move on. It does not explain how the application is built.
 
-## Start the application
+## Contents
 
-You need Docker and Docker Compose. From the project folder:
+1. [Open the application](#open-the-application)
+2. [Key terms](#key-terms)
+3. [Where to do what](#where-to-do-what)
+4. [How the screens fit together](#how-the-screens-fit-together)
+5. [Load the demo, in order](#load-the-demo-in-order)
+6. [How an upload behaves](#how-an-upload-behaves)
+7. [Inventory](#inventory)
+8. [Intelligence](#intelligence)
+9. [Risk scenarios](#risk-scenarios)
+10. [Controls](#controls)
+11. [Risk Register](#risk-register)
+12. [Decision Log](#decision-log)
+13. [Settings](#settings)
+14. [Risk Simulation](#risk-simulation)
+15. [A short reading of the loss](#a-short-reading-of-the-loss)
+16. [Habits that keep the catalog honest](#habits-that-keep-the-catalog-honest)
+17. [Troubleshooting](#troubleshooting)
 
-```bash
-docker compose up -d --build
-```
+## Open the application
 
-Open http://localhost:8080. The browser tab title stays **LoadLine** on every screen. The page heading is the name of the screen you are on.
+LoadLine runs in a web browser. Start it from the project folder with `docker compose up -d --build`, then open http://localhost:8080.
 
-The Home mark in the corner returns to the start page. The menu button lists every screen, in this order:
+The browser tab title stays **LoadLine** on every screen. The page heading is the name of the screen you are on. The Home mark in the corner returns to the start page. The menu button lists every screen, in this order:
 
 - **Inventory:** Organisational Units, Software Systems, Software Components, Business Processes.
 - **Intelligence:** MITRE ATT&CK, Vulnerability Database, Threat Actors, Attack Vectors.
 - **Risk Analysis:** Risk Scenarios, Control Catalog, Scenario-Control Mapping, Risk Register, Decision Log, Risk Simulation.
 - **Settings**, last.
 
-The API listens on http://localhost:8000. `GET /health` returns the model version when the service is up.
-
 The first MITRE download and the vulnerability scan need outbound internet. Catalog uploads do not.
+
+## Key terms
+
+| Term | Meaning in LoadLine |
+|---|---|
+| Scenario | One threat actor, one attack vector, and one target. It is the unit that is costed. |
+| Worksheet | The numbers saved on a scenario. Loss is calculated from the worksheet and nothing else. |
+| Three-point estimate | A minimum, a most likely value (the mode), and a maximum. |
+| TEF | Threat-event frequency: how many times a year the actor attempts the vector. |
+| Susceptibility | The share of attempts that become loss events, from 0 to 1. |
+| Loss event | One attempt that succeeds. Its yearly count cannot exceed the scenario’s cap. |
+| Primary loss | Response, replacement, and productivity loss. It occurs on every loss event. |
+| Secondary loss | Fines, reputation, and competitive loss. It occurs on an event only with the secondary-loss probability. |
+| Lambda | A number from 1 to 10 that pulls a three-point estimate toward its mode. Higher means closer to the mode. |
+| Inherent, Current, Target | The three loss views: no controls, Implemented controls, and Implemented plus Planned controls. |
+| ALE | Annual loss expectancy: the mean annual loss. |
+| VaR95 | The annual loss exceeded in one simulated year out of twenty. |
+| TVaR95 | The average loss across the simulated years at or above VaR95. |
+| Appetite | The limits the board sets for loss, budget, and approval. |
+| RTO | Recovery time objective: the hours a process may be down before the recovery target is missed. |
+| FTE | Full-time equivalent: the number of full-time staff who are occupied by a process. |
+| CVSS, EPSS, KEV | Vulnerability severity score, exploit-prediction score, and CISA’s list of vulnerabilities known to be exploited. |
+| PURL | Package URL: the standard identifier of a software package. |
+| BCR, ROSI | Benefit-cost ratio and return on security investment of a control. |
+
+## Where to do what
+
+| I want to… | Go to |
+|---|---|
+| Describe teams, systems, and processes | Inventory |
+| Register the packages a system runs and see their weaknesses | Software Components, Vulnerability Database |
+| Look up an ATT&CK technique, group, or mitigation | MITRE ATT&CK |
+| Define who attacks and how | Threat Actors, Attack Vectors |
+| Cost a scenario | Risk Scenarios |
+| Record a safeguard and attach it to a scenario | Control Catalog, Scenario-Control Mapping |
+| Compare loss with the board’s limits and pick investments | Risk Register |
+| Issue and approve a board pack | Risk Register, then Decision Log |
+| Change the figures Suggest uses | Settings |
+| Explore a three-point estimate on its own | Risk Simulation |
 
 ## How the screens fit together
 
@@ -731,7 +782,7 @@ mean = (minimum + lambda × mode + maximum) / (lambda + 2)
 
 Analytic annual loss is the frequency mean times the magnitude mean. In that magnitude mean, secondary loss is weighted by the secondary-loss probability. The simulated year does the weighting differently: it includes the secondary forms on an event only when the draw says so.
 
-The register’s Inherent, Current, and Target columns, and the appetite test, use the simulated mean of 10,000 years. The same seed repeats the same draws. Seed for a register row is 1 plus that scenario’s position in the list. Simulate on one row uses seed 1.
+The register’s Inherent, Current, and Target columns, and the appetite test, use the simulated mean of 10,000 years. The same seed repeats the same draws. In the register, scenarios are taken in ID order. The first uses seed 1, the second seed 2, and so on. Simulate on one row uses seed 1.
 
 Controls sit on top of this reading. They scale susceptibility, they scale the six loss forms, or they zero the view. They do not change the stored triples, the cap, or the secondary-loss probability.
 
@@ -749,6 +800,18 @@ Controls sit on top of this reading. They scale susceptibility, they scale the s
 - Generate a new board report after you change a number you want the pack to include. Verify the decision record before you rely on the PDF.
 - Export a catalog before you replace it, so you can restore a file if a replacement is rejected.
 
-## Technical specification
+## Troubleshooting
 
-Refer to README.md for the full technical specification.
+| What you see | Why it happens | What to do |
+|---|---|---|
+| An upload is rejected and a review table opens | A required column is missing, a cell is invalid, or a row names an ID that does not exist yet. Nothing was saved. | Read the highlighted cells, fix the file, and upload it again. Check that earlier catalogs in the loading order are already in place. |
+| A threat actor, vector, or control file is rejected for an ATT&CK ID | The MITRE dataset is not loaded, or the ID is not in it. | Open **MITRE ATT&CK**, press **Check for Updates**, and retry. |
+| An upload is rejected because IDs are “still in use” | The replacement file drops an ID that another catalog still names. | Keep those IDs in the file, or remove the references first. |
+| The Vulnerability Database is empty after you upload components | The vulnerability feeds could not be reached, or no package has a published finding. The inventory is saved either way. | Press **Scan for Vulnerabilities** when the network is available. |
+| A Suggest row says it is withheld | A catalog field it needs is blank. The row names the field. | Fill the field on the system, process, or unit, then run Suggest again and save. |
+| **Simulate** refuses to run | A Current control on that scenario has Eliminates Risk set to Yes. | Check the mapping. The register shows zero for that view, which is expected. |
+| A register row is refused | After the control factors, the minimum of a triple is not below its maximum. | Widen the triple or ease the reduction. |
+| A Planned or Not Implemented control is not in the ranking | It is not mapped, or one or both costs are blank. | Map it, fill both costs, and reload the register. |
+| The recommendation is empty | The treatment budget is blank, or no costed candidate fits it. | Set the budget under **Define Appetite**, and check the candidate table. |
+| **Allow pop-ups to open the PDF in a new tab** | The browser blocked the report tab. | Allow pop-ups for the site and generate the report again. |
+| **Verify** reports a mismatch | The stored record no longer matches its digest. | Do not rely on that record. Generate a new board report. |

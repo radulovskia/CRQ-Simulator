@@ -1,0 +1,346 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,citecolor=blue!50!black]{hyperref}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\renewcommand{\arraystretch}{1.15}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  rulecolor=\color{black!25},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\title{\textbf{LoadLine: A FAIR-Based Cyber Risk Quantification Engine}\\[4pt]
+\large Technical Documentation (Model 2.1.0, Benchmarks 2026.10)}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+LoadLine is a web-based cyber risk quantification (CRQ) system that follows the Factor Analysis of Information Risk (FAIR) decomposition. It maintains an inventory of an organisation's systems, business processes and software components, enriches it with MITRE ATT\&CK knowledge and vulnerability intelligence, and represents each risk scenario as a worksheet of three-point estimates. A compound-Poisson Monte Carlo model with Beta-PERT inputs converts every worksheet into a distribution of annual loss under three control states (inherent, current, target). The system aggregates scenarios into a portfolio, tests the portfolio against a recorded risk appetite, ranks and selects treatments inside an annual budget, and issues a sealed, hash-verified board report with an approval workflow. This document describes the objectives, architecture, data model and calculations of the implemented system, and summarises its functionality.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%--------------------------------------------------------------------
+\section{Introduction}
+%--------------------------------------------------------------------
+
+\subsection{Context and objective}
+Cyber risk is commonly reported as qualitative ratings. Quantitative approaches express risk as a monetary distribution of annual loss, which allows a board to compare exposure with appetite and to compare treatment options by cost and expected benefit. FAIR provides the underlying decomposition: loss event frequency is the product of how often a threat actor acts and how often that action succeeds, and loss magnitude is the monetary consequence of one event.
+
+The objective of LoadLine is to provide a complete, traceable workflow from asset inventory to a board decision on cyber risk treatment, with every number derived from explicit inputs and every output reproducible from a seed.
+
+\subsection{Scope of the system}
+LoadLine covers the following steps of the risk process:
+\begin{enumerate}
+  \item Description of the organisation: units, software systems, business processes and software components.
+  \item Threat and vulnerability evidence: the MITRE ATT\&CK Enterprise dataset, threat actors, attack vectors, and component-level vulnerability findings.
+  \item Scenario analysis: three-point worksheets, benchmark-driven proposals (\emph{Suggest}), and Monte Carlo simulation.
+  \item Control analysis: a control catalog, scenario-specific control mappings, and three control states.
+  \item Portfolio analysis: aggregation, appetite test, investment ranking, and budget-constrained selection.
+  \item Governance: a sealed board report (PDF), a decision log, and a one-time approval record.
+\end{enumerate}
+
+\subsection{Contributions}
+\begin{itemize}
+  \item An end-to-end implementation of a FAIR-style model with a worksheet representation that separates analyst estimates from benchmark proposals.
+  \item A three-state loss view (inherent, current, target) computed from one set of draws per scenario, so differences between states come from controls only.
+  \item An explicit treatment of unknown data: a blank quantity is stored as unknown, proposals are withheld with the missing field named, and remaining gaps are reported in the board pack.
+  \item A treatment optimiser with an exact method for up to 16 costed candidates and a greedy method beyond that.
+  \item A content-addressed decision record: the report is stored with a SHA-256 digest that can be verified at any time.
+\end{itemize}
+
+%--------------------------------------------------------------------
+\section{Methods}
+%--------------------------------------------------------------------
+
+\subsection{System architecture}
+The system is deployed as three containers orchestrated by Docker Compose (Table~\ref{tab:services}).
+
+\begin{table}[h]
+\centering
+\caption{Deployed services.}
+\label{tab:services}
+\begin{tabularx}{\textwidth}{@{}l l l Y@{}}
+\toprule
+Service & Image / runtime & Port & Role \\
+\midrule
+\texttt{postgres} & PostgreSQL 16 & internal & Persistent storage in three databases \\
+\texttt{backend} & Python 3.12, FastAPI, Uvicorn & 8000 & Catalogs, scan, simulation, treatment, reports \\
+\texttt{frontend} & nginx 1.27 (Alpine) & 8080 & Static pages and reverse proxy to the API \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The backend image is built in two stages, runs as a non-root user, and exposes a container health check against \texttt{GET /health}, which returns the model version. The pinned runtime dependencies are FastAPI 0.115.6, Uvicorn 0.32.1, NumPy 2.2.1, Pydantic 2.10.4, psycopg 3.2.9, openpyxl 3.1.5, packageurl-python 0.17.1 and python-multipart 0.0.20.
+
+The frontend is a set of static HTML pages with plain JavaScript modules. Charts use Apache ECharts 5.6.0 and PDF generation uses jsPDF 2.5.2, both loaded from a public CDN. nginx serves the pages and proxies the API paths to the backend.
+
+\subsection{Persistence}
+Data is held in three PostgreSQL databases, created on start-up when absent.
+
+\begin{table}[h]
+\centering
+\caption{Databases.}
+\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+Database & Contents \\
+\midrule
+\texttt{crq} & Inventory, actors, vectors, scenarios, controls, mappings, appetite, benchmarks, decision records \\
+\texttt{vulnerabilities} & Findings from the most recent component scan \\
+\texttt{mitre\_enterprise} & ATT\&CK Enterprise objects, references and relationships, with ICS assets for the asset collection \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The appetite and the benchmark table are single stored documents. A catalog upload replaces the catalog in one transaction after every row has passed validation. Delete and rename operations are refused while another catalog still references the identifier.
+
+\subsection{Data model}
+The catalogs and their relationships are summarised in Table~\ref{tab:catalogs}.
+
+\begin{table}[h]
+\centering
+\caption{Catalogs and their principal fields.}
+\label{tab:catalogs}
+\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+Catalog & Principal fields \\
+\midrule
+Organisational Units & ID, name, responsibilities, oversight, headcount, loaded hourly cost \\
+Software Systems & ID, name, function, business owner and technical custodian units, criticality, data classification, deployment, internet facing, replacement cost, records held \\
+Business Processes & ID, unit, linked systems, criticality, key information, recovery time objective, downtime cost per hour before and after the objective, full-time equivalent count \\
+Software Components & ID, system, package URL \\
+Threat Actors & ID, type, motivation, capability, sector targeting, ATT\&CK group IDs \\
+Attack Vectors & ID, ATT\&CK technique chain, terminal tactic, loss event type, exploit and exposure requirements, base frequency, base susceptibility and typical outage-hour triples, ATT\&CK mitigation IDs \\
+Risk Scenarios & Actor, vector, target (system or process), owner unit, status (Draft, Reviewed, Approved), and the worksheet \\
+Control Catalog & ID, type, reduction type, frequency and magnitude reduction percentages, status, implementation and annual cost, owner unit, framework reference, mitigations \\
+Scenario--Control Mapping & Scenario, control, optional percentage overrides, eliminates-risk flag, rationale \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Catalog uploads accept CSV and XLSX files of up to 10~MiB. Column order is free. Every row is validated before anything is written; a rejected file leaves the previous catalog unchanged and returns a review table that marks each invalid cell. Enumerations, ranges, three-point ordering (minimum $\le$ mode $\le$ maximum) and cross-catalog references are checked. ATT\&CK identifiers are checked for format and against the loaded dataset: groups \texttt{G}\emph{dddd}, mitigations \texttt{M}\emph{dddd}, and techniques \texttt{T}\emph{dddd} with an optional sub-technique suffix.
+
+A blank catalog quantity is stored as \emph{unknown} and is never replaced with zero. The one display convention is that a blank post-recovery downtime cost uses the before-recovery cost.
+
+\subsection{External intelligence}
+\begin{itemize}
+  \item \textbf{MITRE ATT\&CK.} The latest Enterprise release is read from the \texttt{mitre-attack/attack-stix-data} GitHub releases and stored together with relationships and references. The browser covers tactics, techniques, groups, software, mitigations, campaigns, assets, detection strategies, analytics and data components, with search, sorting, deprecated-object control and category filters.
+  \item \textbf{Vulnerability scan.} Component package URLs are queried against OSV. CVSS scores are obtained from NVD, EPSS scores from FIRST, and Known Exploited Vulnerability (KEV) status from the CISA catalog. Each finding is stored per component and system.
+\end{itemize}
+
+\subsection{Scenario worksheet}
+A scenario is one actor, one attack vector and one target. The worksheet holds the estimates of record:
+\begin{itemize}
+  \item threat-event frequency (TEF), susceptibility, and the annual cap on loss events, each with a basis of External, Internal, Expert or Mixed;
+  \item six loss forms, each a minimum / mode / maximum triple: response, replacement, productivity (primary), and fines, reputation, competitive advantage (secondary);
+  \item the secondary-loss probability, and a Beta-PERT confidence parameter $\lambda\in[1,10]$ for frequency and for magnitude.
+\end{itemize}
+Draft scenarios are simulated and displayed. Portfolio totals and the appetite test include scenarios with status Reviewed or Approved.
+
+\subsection{Benchmark-driven proposals (Suggest)}
+\emph{Suggest} proposes worksheet values from the actor, vector, target, vulnerability findings and the benchmark table in Settings. A proposal is accepted only when the analyst saves the form. Each proposed factor carries a rationale; a factor whose inputs are unknown is withheld with the missing fields named.
+
+\begin{align}
+\text{TEF} &= \text{base TEF}\times\text{sector targeting}\times\text{reachability}\\
+\text{susceptibility} &= \min\!\bigl(1,\ \text{base susceptibility}\times\text{evidence factor}\bigr)\\
+\text{replacement} &= \Bigl(\textstyle\sum \text{replacement cost}\Bigr)\times\text{fraction}_{\text{loss type}}\\
+\text{fine} &= \min\!\bigl(\text{records held}\times\text{rate per record},\ \text{fine cap}\bigr)\ \text{(per bound)}
+\end{align}
+
+Reachability equals the benchmark value (0.25) when the vector requires an internet-facing target and the target is not exposed, and 1 otherwise. The evidence factor equals 1 for vectors that do not depend on a vulnerability. For other vectors it is selected from the findings on the affected systems in this order: no findings; exploited (EPSS $\ge 0.1$ or KEV); unknown CVSS; CVSS below 7; CVSS 7 or higher. Productivity is built from the vector's typical outage hours and each affected process. For one process and one outage duration $h$ with recovery time objective $R$:
+\begin{equation}
+\text{loss} = \min(h,R)\,c_{\text{before}} + \max(h-R,0)\,c_{\text{after}} + h\cdot \text{FTE}\cdot w,
+\end{equation}
+where $c_{\text{before}}$ and $c_{\text{after}}$ are the hourly downtime costs, FTE is the full-time equivalent count and $w$ is the loaded hourly cost of the owning unit. Money proposals are rounded to three significant figures. Shipped benchmark values are version 2026.10; Settings stores an edited table under a UTC time-stamped version, and a saved scenario keeps its own worksheet.
+
+\subsection{Control model}
+Each control is applied to a scenario through a mapping. The effective percentage is the mapping override when filled, otherwise the catalog percentage; the control's reduction type (Frequency, Magnitude, Both) then zeroes the side it does not reduce. Three control states are evaluated:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+State & Mapped controls included \\
+\midrule
+Inherent & none \\
+Current & status Implemented \\
+Target & status Implemented or Planned \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Controls combine multiplicatively, in control-identifier order:
+\begin{equation}
+f_{\text{freq}}=\prod_i\Bigl(1-\tfrac{p^{\text{freq}}_i}{100}\Bigr),\qquad
+f_{\text{mag}}=\prod_i\Bigl(1-\tfrac{p^{\text{mag}}_i}{100}\Bigr).
+\end{equation}
+$f_{\text{freq}}$ scales the susceptibility triple. $f_{\text{mag}}$ scales all six loss-form triples. A mapping flagged \emph{Eliminates Risk} sets the loss of that state to zero.
+
+\subsection{Loss model and simulation}
+Loss event frequency and loss magnitude are collapsed from the worksheet:
+\begin{align}
+\text{LEF}_{\min}&=\text{TEF}_{\min}\cdot s_{\min}, &
+\text{LEF}_{\max}&=\min(\text{TEF}_{\max}\cdot s_{\max},\ \text{cap}),\\
+\text{LEF}_{\text{mode}}&=\min(\text{TEF}_{\text{mode}}\cdot s_{\text{mode}},\ \text{LEF}_{\max}), &
+M&=P+q\,S,
+\end{align}
+where $P$ is the sum of primary forms, $S$ the sum of secondary forms and $q$ the secondary-loss probability, each taken on the corresponding bound. The analytic mean of a triple is
+\begin{equation}
+\mu=\frac{a+\lambda m+b}{\lambda+2},
+\end{equation}
+and analytic annual loss is $\mu_{\text{LEF}}\cdot\mu_{M}$.
+
+A simulated year is generated as follows. A loss-event rate is drawn from a Beta-PERT distribution
+\begin{equation}
+\alpha=1+\lambda\tfrac{m-a}{b-a},\quad \beta=1+\lambda\tfrac{b-m}{b-a},\quad X=a+(b-a)\,\mathrm{Beta}(\alpha,\beta),
+\end{equation}
+the number of events is drawn from a Poisson distribution at that rate, every primary form is drawn for each event, and with probability $q$ every secondary form is added to that event. The year's loss is the sum over its events. The default is 10,000 iterations, a fixed seed reproduces the draws, and a run is stopped if the iterations together would require more than 5,000,000 events. The following statistics are produced from the annual-loss samples: mean, median, standard deviation, the 5th, 50th, 95th and 99th percentiles, Value at Risk at 95\% and 99\%, Tail Value at Risk at 95\% and 99\%, and the probability of a loss year. Charts use 40 histogram bins, a 100-point loss-exceedance curve and a scatter of up to 2,000 event-years.
+
+\subsection{Register, appetite and portfolio}
+The register simulates every scenario in the three states with a per-scenario seed equal to the run seed plus the scenario's position, and the same seed for the three states of one scenario. The portfolio loss of each iteration is the sum of the scenario losses of that iteration for scenarios included in the appetite test. This assumption is recorded in the product and in every report.
+
+A single appetite record holds a statement, limits for annual loss expectancy and for VaR95, a per-scenario tolerance, an annual treatment budget, an approval threshold, amortisation years (1--10), and the author. Each limit is evaluated as \emph{Within}, \emph{Breached} or \emph{Not defined}, and a scenario is flagged when its current mean exceeds the tolerance.
+
+\subsection{Treatment analysis}
+Candidates are mapped controls with status Planned or Not Implemented. For each costed candidate:
+\begin{align}
+\text{annualised cost}&=\text{annual cost}+\frac{\text{implementation cost}}{\text{amortisation years}},\\
+\text{net benefit}&=\Delta-\text{annualised cost},\quad
+\text{BCR}=\frac{\Delta}{\text{annualised cost}},\quad
+\text{ROSI}=\frac{\text{net benefit}}{\text{annualised cost}},
+\end{align}
+where $\Delta$ is the reduction in analytic annual loss, summed over the scenarios the control is mapped to. The recommendation maximises total analytic reduction subject to the sum of annualised costs not exceeding the annual treatment budget. With 16 or fewer costed candidates every subset is evaluated, with ties resolved by lower cost and then by identifier order. With more candidates, controls are added greedily by extra reduction per annualised cost. A second search reports the cheapest set that brings non-draft analytic loss under the portfolio limit and the scenario tolerance, and whether it fits the budget. The recommended portfolio is then simulated and re-tested against appetite.
+
+\subsection{Board report and decision record}
+A report is generated from the register, the treatment result and the appetite. It contains a narrative, the appetite, portfolio exposure for the four states (inherent, current, target, recommended), the scenarios, the treatments, decision lines, assumptions, a data-quality section and input digests. Decision lines are Invest, Accept, Escalate, Data gap and Defer. Invest, Accept and Escalate lines are marked Committee or Management by the approval threshold, Data gap lines are marked Management, and Defer lines carry no approval level. Each remaining data gap is stated in the form
+\texttt{* RS-01: Data Gap identified in BP-04 - IT Change \& Release Management, missing Downtime Cost per Hour before RTO.}
+
+The record is stored with an identifier \texttt{DR-YYYYMMDD-NNN} (UTC date and a daily sequence number) and a SHA-256 digest of its canonical JSON form. The initial status is Proposed. \emph{Verify} recomputes the digest, \emph{PDF} reprints the stored report, and the approval step records Approved or Rejected once, with a name and a note. A recorded decision is shown as a read-only view.
+
+\subsection{User interface and routes}
+The menu lists sixteen entries: Home; Inventory (Organisational Units, Software Systems, Software Components, Business Processes); Intelligence (MITRE ATT\&CK, Vulnerability Database, Threat Actors, Attack Vectors); Risk Analysis (Risk Scenarios, Control Catalog, Scenario-Control Mapping, Risk Register, Decision Log, Risk Simulation); and Settings. Catalog screens share one behaviour: guided upload, a review table, sorting, filtering, paging (25 rows), inline add, edit and delete, and CSV export. A standalone Risk Simulation screen runs the same simulated year for one frequency triple and one magnitude triple. The REST interface exposes every catalog, the scan, MITRE, Suggest, simulation, register, treatments, report, appetite, benchmarks and decision resources.
+
+%--------------------------------------------------------------------
+\section{Results}
+%--------------------------------------------------------------------
+
+\subsection{Implemented functionality}
+Table~\ref{tab:functions} summarises the implemented capabilities.
+
+\begin{table}[h]
+\centering
+\caption{Implemented capabilities.}
+\label{tab:functions}
+\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+Area & Capability \\
+\midrule
+Inventory & Nine catalogs with CSV/XLSX upload, all-or-nothing validation, referential protection, export \\
+Intelligence & ATT\&CK Enterprise browser with identifier validation; OSV, NVD, EPSS and KEV vulnerability scan \\
+Scenarios & Three-point worksheets, benchmark proposals with rationales, per-scenario simulation with charts and PDF export \\
+Controls & Catalog, scenario mapping with overrides and elimination, three control states \\
+Portfolio & Three-state register, VaR/TVaR, appetite test, scenario tolerance \\
+Treatment & Annualised cost, BCR, ROSI, budget-constrained selection, appetite reach search \\
+Governance & Board report PDF, SHA-256 verified decision log, one-time approval \\
+Configuration & Versioned benchmark table, appetite record \\
+Sandbox & Standalone Monte Carlo for one frequency and one magnitude triple \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Reference catalog}
+The repository includes a demonstration catalog of a bank-style organisation in \texttt{demo/}. In the reference deployment used for this documentation the catalogs hold 6 organisational units, 10 software systems, 18 business processes, 30 software components, 6 threat actors, 10 attack vectors, 14 controls, 12 risk scenarios and 36 scenario-control mappings. The component scan stored 67 findings across 7 systems. The demonstration appetite is: annual loss expectancy limit 2,000,000; VaR95 limit 4,000,000; scenario tolerance 500,000; annual treatment budget 180,000; approval threshold 100,000; amortisation 3 years. The catalogs are loaded in dependency order: MITRE ATT\&CK, units, systems, processes, components, actors, vectors, controls, scenarios, mappings, and appetite.
+
+\subsection{Outputs}
+For each scenario the system reports inherent, current and target mean annual loss. For the portfolio it reports expected loss, VaR95, TVaR95 and the probability of a loss year for the inherent, current, target and recommended states, together with the appetite status. For treatment it reports the ranked candidates, the recommended set with its expected reduction and annualised cost, and the decision lines. All outputs are reproducible from the stored catalogs, the benchmark version and the seed.
+
+\subsection{Provenance and reproducibility}
+Every report records the model version (2.1.0), the benchmark version, the seed, the number of iterations, the assumptions in force, and a digest of each catalog snapshot. The decision record is canonicalised by sorted keys, compact separators and normalised numbers before hashing.
+
+%--------------------------------------------------------------------
+\section{Discussion}
+%--------------------------------------------------------------------
+
+\subsection{Design properties}
+\begin{itemize}
+  \item \textbf{Separation of estimate and proposal.} The worksheet is the scenario of record. Benchmarks only propose values, and a later change of the benchmark table never rewrites a saved scenario.
+  \item \textbf{Explicit unknowns.} Missing quantities remain visible as unknown, block only the proposals that depend on them, and are carried into the board report as named data gaps.
+  \item \textbf{Controlled comparison.} Inherent, current and target losses share the draws of a scenario, so their differences are attributable to the controls.
+  \item \textbf{Traceable governance.} Reports are immutable, digest-verified, and decided once, which gives each board decision a fixed evidential basis.
+  \item \textbf{Inspectable model.} Each parameter is a stored, named quantity: the frequency and magnitude confidence parameters, the secondary-loss probability, the control percentages and the benchmark values are all visible on the screen that owns them.
+\end{itemize}
+
+\subsection{Modelling assumptions}
+The model rests on the following stated assumptions: scenarios are independent in the portfolio sum; controls combine multiplicatively, with frequency reductions acting on susceptibility and magnitude reductions on all loss forms; treatment selection maximises expected (analytic) reduction while tail measures are simulated; benchmark constants drive suggestions only while stored scenario values are analyst estimates; and frequency and magnitude follow Beta-PERT distributions with compound Poisson events and conditional secondary loss.
+
+\subsection{Applicability}
+Because catalogs are loaded from files and every quantity is entered as a three-point estimate, the system can be applied to organisations of different size by replacing the catalogs and editing the benchmark table. The reference catalog demonstrates the complete workflow on a bank-style organisation.
+
+%--------------------------------------------------------------------
+\section{Conclusion}
+%--------------------------------------------------------------------
+LoadLine implements a complete FAIR-style cyber risk quantification workflow: structured inventory, ATT\&CK and vulnerability evidence, benchmark-assisted three-point worksheets, a compound-Poisson Monte Carlo model, a multiplicative control model with three control states, portfolio aggregation against a recorded appetite, a budget-constrained treatment optimiser, and a sealed, verifiable board report with an approval record. Its explicit handling of unknown data, reproducible simulation and traceable decision records make each reported figure attributable to named inputs.
+
+\appendix
+\section{Reference summary of the shipped benchmark table (version 2026.10)}
+\begin{table}[h]
+\centering
+\caption{Selected shipped benchmark values.}
+\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+Parameter & Shipped value \\
+\midrule
+Sector targeting Low / Medium / High & 0.5 / 1 / 1.5 \\
+Reachability (internet-facing vector, unexposed target) & 0.25 \\
+Evidence factor: none, CVSS $<7$, CVSS $\ge7$, unknown, exploited & 0.5 / 0.8 / 1 / 1 / 1.5 \\
+Annual cap, Fraud and Confidentiality & 52 and 12 \\
+Annual cap, Availability and Integrity, High / Medium / Low & 4 / 6 / 12 \\
+Frequency $\lambda$, magnitude $\lambda$ & 3 and 4 \\
+Secondary-loss probability, Confidentiality: Confidential / Internal / Public & 0.70 / 0.30 / 0.05 \\
+Secondary-loss probability, Availability exposed-high / other & 0.40 / 0.15 \\
+Secondary-loss probability, Integrity and Fraud & 0.50 and 0.30 \\
+Fine cap & 20,000,000 \\
+Competitive advantage triple & 0 / 50,000 / 500,000 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Technology summary}
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Layer & Technology \\
+\midrule
+Language and runtime & Python 3.12 \\
+API & FastAPI 0.115.6, Uvicorn 0.32.1, Pydantic 2.10.4 \\
+Numerics & NumPy 2.2.1 \\
+Storage & PostgreSQL 16, psycopg 3.2.9 \\
+File import & openpyxl 3.1.5, packageurl-python 0.17.1 \\
+Web server & nginx 1.27 (Alpine) \\
+Charts and PDF & Apache ECharts 5.6.0, jsPDF 2.5.2 \\
+Packaging & Docker, Docker Compose \\
+External sources & MITRE ATT\&CK, OSV, NVD, FIRST EPSS, CISA KEV \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
